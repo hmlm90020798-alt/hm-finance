@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HM Finance</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+:root {
+  --bg: #0f0f0f;
+  --surface: #181818;
+  --card: #1e1e1e;
+  --border: rgba(255,255,255,0.08);
+  --border-md: rgba(255,255,255,0.14);
+  --text: #e8e6e0;
+  --muted: #888780;
+  --hint: #555;
+  --gold: #C4A96A;
+  --gold-dim: rgba(196,169,106,0.15);
+  --red: #c0392b;
+  --red-bg: rgba(192,57,43,0.12);
+  --green: #27a06a;
+  --green-bg: rgba(39,160,106,0.12);
+  --amber: #b87333;
+  --amber-bg: rgba(184,115,51,0.12);
+  --blue: #3a7bd5;
+  --blue-bg: rgba(58,123,213,0.12);
+  --radius: 10px;
+  --radius-lg: 14px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+/* LAYOUT */
+.app { display: flex; flex-direction: column; min-height: 100vh; }
+header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 24px; height: 56px;
+  border-bottom: 0.5px solid var(--border);
+  background: var(--bg);
+  position: sticky; top: 0; z-index: 10;
+}
+.logo { font-size: 15px; font-weight: 500; color: var(--gold); letter-spacing: .04em; }
+.logo span { color: var(--muted); font-weight: 400; }
+.sync-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
+.sync-dot.ok { background: var(--green); }
+.sync-dot.saving { background: var(--amber); }
+nav {
+  display: flex; gap: 2px; padding: 0 16px;
+  border-bottom: 0.5px solid var(--border);
+  background: var(--bg);
+  overflow-x: auto; scrollbar-width: none;
+}
+nav::-webkit-scrollbar { display: none; }
+.nb {
+  background: none; border: none; border-bottom: 2px solid transparent;
+  padding: 12px 14px; font-size: 13px; color: var(--muted);
+  cursor: pointer; font-family: 'DM Sans', sans-serif;
+  white-space: nowrap; margin-bottom: -1px;
+  transition: color .15s;
+}
+.nb:hover { color: var(--text); }
+.nb.on { color: var(--gold); border-bottom-color: var(--gold); font-weight: 500; }
+main { flex: 1; padding: 24px 24px 80px; max-width: 720px; margin: 0 auto; width: 100%; }
+/* SCREENS */
+.sc { display: none; } .sc.on { display: block; }
+/* TYPOGRAPHY */
+.stitle {
+  font-size: 10px; font-weight: 500; color: var(--muted);
+  letter-spacing: .1em; text-transform: uppercase;
+  margin: 1.5rem 0 10px;
+}
+.stitle:first-child { margin-top: 0; }
+/* METRICS */
+.metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 1.5rem; }
+.met { background: var(--surface); border-radius: var(--radius); padding: 12px 14px; border: 0.5px solid var(--border); }
+.met-l { font-size: 11px; color: var(--muted); margin-bottom: 6px; }
+.met-v { font-size: 18px; font-weight: 500; color: var(--text); }
+.met-v.neg { color: var(--red); }
+.met-v.pos { color: var(--green); }
+.met-v.warn { color: var(--amber); }
+/* CARDS */
+.card {
+  background: var(--card); border: 0.5px solid var(--border);
+  border-radius: var(--radius-lg); padding: 16px 18px; margin-bottom: 10px;
+}
+.ch { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.ct { font-size: 14px; font-weight: 500; color: var(--text); }
+/* ROWS */
+.row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 6px 0; border-bottom: 0.5px solid var(--border);
+}
+.row:last-child { border-bottom: none; }
+.rl { font-size: 13px; color: var(--muted); }
+.rv { font-size: 13px; font-weight: 500; color: var(--text); }
+.rv.neg { color: var(--red); }
+.rv.pos { color: var(--green); }
+.rv.warn { color: var(--amber); }
+/* PROGRESS */
+.pbar { height: 4px; background: rgba(255,255,255,.06); border-radius: 2px; overflow: hidden; margin-top: 10px; }
+.pfill { height: 100%; border-radius: 2px; background: var(--gold); }
+/* BADGES */
+.bdg { font-size: 11px; padding: 3px 8px; border-radius: 6px; font-weight: 500; }
+.bdg-b { background: var(--blue-bg); color: #6fa3e8; }
+.bdg-a { background: var(--amber-bg); color: #d4956a; }
+.bdg-r { background: var(--red-bg); color: #e07070; }
+.bdg-g { background: var(--green-bg); color: #6dc99a; }
+.bdg-gray { background: rgba(255,255,255,.06); color: var(--muted); }
+/* BUTTONS */
+.btn {
+  background: none; border: 0.5px solid var(--border-md);
+  border-radius: var(--radius); padding: 8px 14px;
+  font-size: 13px; color: var(--text); cursor: pointer;
+  font-family: 'DM Sans', sans-serif; transition: background .12s;
+}
+.btn:hover { background: rgba(255,255,255,.05); }
+.btn-p { background: var(--gold); border-color: var(--gold); color: #1a1200; font-weight: 500; }
+.btn-p:hover { opacity: .88; background: var(--gold); }
+.btn-sm { padding: 4px 9px; font-size: 12px; }
+.btn-d { border-color: rgba(192,57,43,.4); color: var(--red); }
+.btn-d:hover { background: var(--red-bg); }
+/* FORMS */
+.fr { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+.fr3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+.fr1 { display: grid; grid-template-columns: 1fr; gap: 10px; margin-bottom: 10px; }
+label { font-size: 11px; color: var(--muted); display: block; margin-bottom: 5px; }
+input, select, textarea {
+  width: 100%; padding: 8px 11px; font-size: 13px;
+  border: 0.5px solid var(--border-md); border-radius: var(--radius);
+  background: var(--surface); color: var(--text);
+  font-family: 'DM Sans', sans-serif; outline: none;
+  transition: border-color .15s;
+}
+input:focus, select:focus { border-color: var(--gold); }
+select option { background: #222; }
+/* TOGGLES */
+.tgl { display: none; } .tgl.on { display: block; }
+/* ACTIONS */
+.acts { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+/* SIM */
+.sim-box { background: var(--surface); border-radius: var(--radius); padding: 14px 16px; margin-top: 12px; border: 0.5px solid var(--border); }
+.sr { display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; }
+.sr .l { color: var(--muted); } .sr .v { font-weight: 500; color: var(--text); }
+.sr.hl .v { color: var(--gold); font-size: 15px; }
+/* ALERTS */
+.alert { padding: 10px 14px; border-radius: var(--radius); font-size: 12px; margin-bottom: 10px; display: flex; gap: 8px; align-items: flex-start; line-height: 1.5; }
+.al-w { background: var(--amber-bg); color: #d4956a; border: 0.5px solid rgba(184,115,51,.3); }
+.al-i { background: var(--blue-bg); color: #6fa3e8; border: 0.5px solid rgba(58,123,213,.3); }
+.al-g { background: var(--green-bg); color: #6dc99a; border: 0.5px solid rgba(39,160,106,.3); }
+/* EXPORT */
+.exp-box {
+  background: var(--surface); border-radius: var(--radius);
+  padding: 16px; font-family: 'DM Mono', monospace; font-size: 11px;
+  line-height: 1.7; color: var(--text); white-space: pre-wrap;
+  max-height: 320px; overflow-y: auto; border: 0.5px solid var(--border);
+}
+/* GASTOS */
+.pill { font-size: 11px; padding: 4px 11px; border-radius: 20px; cursor: pointer; border: 0.5px solid var(--border-md); color: var(--muted); background: none; font-family: 'DM Sans', sans-serif; }
+.pill.on { background: var(--surface); color: var(--text); font-weight: 500; }
+.pill-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.cat-dot { width: 7px; height: 7px; border-radius: 2px; display: inline-block; margin-right: 6px; flex-shrink: 0; }
+/* AUTH OVERLAY */
+#auth-overlay {
+  position: fixed; inset: 0; background: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 100; flex-direction: column; gap: 16px;
+}
+.auth-card {
+  background: var(--card); border: 0.5px solid var(--border);
+  border-radius: var(--radius-lg); padding: 32px 36px;
+  text-align: center; max-width: 340px; width: 90%;
+}
+.auth-title { font-size: 22px; font-weight: 500; color: var(--gold); margin-bottom: 8px; }
+.auth-sub { font-size: 13px; color: var(--muted); margin-bottom: 24px; line-height: 1.6; }
+.auth-input { margin-bottom: 10px; }
+/* LOADING */
+#loading { position: fixed; inset: 0; background: var(--bg); display: flex; align-items: center; justify-content: center; z-index: 200; }
+.spinner { width: 24px; height: 24px; border: 2px solid var(--border-md); border-top-color: var(--gold); border-radius: 50%; animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+/* RESPONSIVE */
+@media (max-width: 500px) {
+  .fr3 { grid-template-columns: 1fr 1fr; }
+  main { padding: 16px 16px 80px; }
+}
+</style>
+</head>
+<body>
+
+<div id="loading"><div class="spinner"></div></div>
+
+<div id="auth-overlay" style="display:none">
+  <div class="auth-card">
+    <div class="auth-title">HM Finance</div>
+    <div class="auth-sub">Acesso com pin pessoal.<br>Os teus dados ficam sincronizados.</div>
+    <div class="auth-input"><label>PIN (mínimo 4 dígitos)</label><input id="pin-input" type="password" inputmode="numeric" placeholder="••••" maxlength="12"></div>
+    <div class="acts" style="flex-direction:column">
+      <button class="btn btn-p" style="width:100%" onclick="authPin()">Entrar</button>
+    </div>
+    <div id="auth-err" style="font-size:12px;color:var(--red);margin-top:10px;min-height:16px"></div>
+    <div style="font-size:11px;color:var(--muted);margin-top:16px;line-height:1.6">
+      Primeira vez? Cria o teu PIN.<br>Da próxima vez usa o mesmo para aceder.
+    </div>
+  </div>
+</div>
+
+<div class="app" id="app-shell" style="display:none">
+  <header>
+    <div class="logo">HM <span>Finance</span></div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <span id="sync-label" style="font-size:11px;color:var(--muted)">sincronizado</span>
+      <div id="sync-dot" class="sync-dot ok"></div>
+      <button class="btn btn-sm" onclick="logout()" style="font-size:11px;padding:4px 10px">sair</button>
+    </div>
+  </header>
+
+  <nav>
+    <button class="nb on" onclick="go('visao',this)">visão</button>
+    <button class="nb" onclick="go('creditos',this)">créditos</button>
+    <button class="nb" onclick="go('amortizar',this)">amortizar</button>
+    <button class="nb" onclick="go('gastos',this)">gastos</button>
+    <button class="nb" onclick="go('cashflow',this)">cash flow</button>
+    <button class="nb" onclick="go('exportar',this)">exportar</button>
+  </nav>
+
+  <main>
+
+    <!-- VISÃO -->
+    <div id="sc-visao" class="sc on">
+      <div id="v-metrics" class="metrics"></div>
+      <div class="stitle">Créditos — custo real do dinheiro</div>
+      <div id="v-credits"></div>
+      <div class="stitle">Alertas</div>
+      <div id="v-alerts"></div>
+      <div class="stitle">Cash flow este mês</div>
+      <div id="v-cf" class="card"></div>
+    </div>
+
+    <!-- CRÉDITOS -->
+    <div id="sc-creditos" class="sc">
+      <div id="cl-list"></div>
+      <button class="btn" onclick="tog('cf-form')" style="margin-bottom:1rem">+ adicionar crédito</button>
+      <div id="cf-form" class="tgl card">
+        <div class="ct" style="margin-bottom:14px">novo crédito</div>
+        <div class="fr">
+          <div><label>tipo</label><select id="cft"><option>Habitação</option><option>Automóvel</option><option>Pessoal</option><option>Cartão/Revolving</option></select></div>
+          <div><label>nome / banco</label><input id="cfn" placeholder="ex: CGD Habitação"></div>
+        </div>
+        <div class="fr3">
+          <div><label>capital em dívida (€)</label><input id="cfd" type="number" placeholder="60000"></div>
+          <div><label>prestação/mês (€)</label><input id="cfp" type="number" placeholder="350"></div>
+          <div><label>taxa TAN (%)</label><input id="cfta" type="number" step="0.01" placeholder="3.50"></div>
+        </div>
+        <div class="fr3">
+          <div><label>capital inicial (€)</label><input id="cfi" type="number" placeholder="80000"></div>
+          <div><label>prazo restante (meses)</label><input id="cfpr" type="number" placeholder="240"></div>
+          <div><label>dia vencimento</label><input id="cfdv" type="number" min="1" max="28" placeholder="15"></div>
+        </div>
+        <div class="acts">
+          <button class="btn btn-p" onclick="addCredit()">guardar</button>
+          <button class="btn" onclick="tog('cf-form')">cancelar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- AMORTIZAR -->
+    <div id="sc-amortizar" class="sc">
+      <div class="stitle">amortização antecipada</div>
+      <div class="card">
+        <div class="fr">
+          <div><label>crédito</label><select id="sa-c"><option value="">— selecionar —</option></select></div>
+          <div><label>montante a amortizar (€)</label><input id="sa-v" type="number" placeholder="5000"></div>
+        </div>
+        <div class="fr">
+          <div><label>objetivo</label><select id="sa-t"><option value="prestacao">reduzir prestação</option><option value="prazo">reduzir prazo</option></select></div>
+          <div style="display:flex;align-items:flex-end"><button class="btn btn-p" style="width:100%" onclick="calcAmort()">calcular</button></div>
+        </div>
+        <div id="sa-r"></div>
+      </div>
+
+      <div class="stitle">impacto da variação de taxa (euribor)</div>
+      <div class="card">
+        <div class="fr">
+          <div><label>crédito</label><select id="sv-c"><option value="">— selecionar —</option></select></div>
+          <div><label>nova taxa TAN (%)</label><input id="sv-t" type="number" step="0.01" placeholder="4.50"></div>
+        </div>
+        <button class="btn btn-p" onclick="calcVariacao()">simular variação</button>
+        <div id="sv-r"></div>
+      </div>
+
+      <div class="stitle">custo total dos créditos</div>
+      <div id="sa-total" class="card"></div>
+    </div>
+
+    <!-- GASTOS -->
+    <div id="sc-gastos" class="sc">
+      <div id="g-summary" class="metrics"></div>
+      <button class="btn" onclick="tog('gf-form')" style="margin-bottom:10px">+ registar gasto</button>
+      <div id="gf-form" class="tgl card">
+        <div class="ct" style="margin-bottom:12px">novo registo</div>
+        <div class="fr">
+          <div><label>descrição</label><input id="gfd" placeholder="ex: Continente"></div>
+          <div><label>valor (€)</label><input id="gfv" type="number" step="0.01" placeholder="45.50"></div>
+        </div>
+        <div class="fr">
+          <div><label>categoria</label><select id="gfc"><option>Alimentação</option><option>Transportes</option><option>Habitação</option><option>Saúde</option><option>Lazer</option><option>Vestuário</option><option>Educação</option><option>Seguros</option><option>Outros</option></select></div>
+          <div><label>data</label><input id="gfdt" type="date"></div>
+        </div>
+        <div class="acts">
+          <button class="btn btn-p" onclick="addGasto()">guardar</button>
+          <button class="btn" onclick="tog('gf-form')">cancelar</button>
+        </div>
+      </div>
+      <div class="stitle">registos do mês</div>
+      <div class="pill-row" id="g-cats"></div>
+      <div id="g-list"></div>
+    </div>
+
+    <!-- CASH FLOW -->
+    <div id="sc-cashflow" class="sc">
+      <div class="stitle">rendimentos</div>
+      <div id="inc-list"></div>
+      <button class="btn" onclick="tog('if-form')" style="margin-bottom:1rem">+ adicionar rendimento</button>
+      <div id="if-form" class="tgl card">
+        <div class="ct" style="margin-bottom:12px">novo rendimento</div>
+        <div class="fr">
+          <div><label>descrição</label><input id="ifd" placeholder="ex: Salário"></div>
+          <div><label>valor mensal (€)</label><input id="ifv" type="number" placeholder="1800"></div>
+        </div>
+        <div class="fr1"><div><label>tipo</label><select id="ift"><option>Salário</option><option>Subsídio</option><option>Freelance</option><option>Rendimento passivo</option><option>Outro</option></select></div></div>
+        <div class="acts">
+          <button class="btn btn-p" onclick="addIncome()">guardar</button>
+          <button class="btn" onclick="tog('if-form')">cancelar</button>
+        </div>
+      </div>
+
+      <div class="stitle">despesas fixas mensais</div>
+      <div id="fix-list"></div>
+      <button class="btn" onclick="tog('ff-form')" style="margin-bottom:1rem">+ adicionar despesa fixa</button>
+      <div id="ff-form" class="tgl card">
+        <div class="ct" style="margin-bottom:12px">nova despesa fixa</div>
+        <div class="fr">
+          <div><label>descrição</label><input id="ffd" placeholder="ex: Seguro automóvel"></div>
+          <div><label>valor mensal (€)</label><input id="ffv" type="number" placeholder="80"></div>
+        </div>
+        <div class="fr1"><div><label>categoria</label><select id="ffc"><option>Habitação</option><option>Transportes</option><option>Seguros</option><option>Telecomunicações</option><option>Saúde</option><option>Educação</option><option>Outros</option></select></div></div>
+        <div class="acts">
+          <button class="btn btn-p" onclick="addFixed()">guardar</button>
+          <button class="btn" onclick="tog('ff-form')">cancelar</button>
+        </div>
+      </div>
+
+      <div class="stitle">resumo mensal</div>
+      <div id="cf-breakdown" class="card"></div>
+      <div style="position:relative;width:100%;height:220px;margin-top:1rem">
+        <canvas id="cf-chart" role="img" aria-label="Gráfico de barras: rendimentos vs despesas">Rendimentos e despesas mensais.</canvas>
+      </div>
+    </div>
+
+    <!-- EXPORTAR -->
+    <div id="sc-exportar" class="sc">
+      <div class="alert al-i" style="margin-bottom:12px">Copia este bloco e cola numa conversa com Claude para análise detalhada.</div>
+      <div id="exp-txt" class="exp-box">Adiciona dados para gerar o resumo.</div>
+      <div class="acts" style="margin-top:10px">
+        <button class="btn btn-p" onclick="copyExp()">copiar</button>
+        <button class="btn" onclick="genExp()">atualizar</button>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- Firebase SDK -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, signInAnonymously, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import {
+  getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc,
+  collection, onSnapshot, addDoc, serverTimestamp, query, orderBy
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+// ── CONFIG ──────────────────────────────────────────
+const FIREBASE_CONFIG = {
+  apiKey: "COLE_AQUI_API_KEY",
+  authDomain: "COLE_AQUI.firebaseapp.com",
+  projectId: "COLE_AQUI_PROJECT_ID",
+  storageBucket: "COLE_AQUI.appspot.com",
+  messagingSenderId: "COLE_AQUI",
+  appId: "COLE_AQUI_APP_ID"
+};
+// ────────────────────────────────────────────────────
+
+const app = initializeApp(FIREBASE_CONFIG);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+let uid = null;
+let credits = [];
+let gastos = [];
+let incomes = [];
+let fixed = [];
+let cfChart = null;
+let activeCat = 'all';
+let syncTimer = null;
+
+// ── AUTH ─────────────────────────────────────────────
+function hashPin(pin) {
+  let h = 0;
+  for (let i = 0; i < pin.length; i++) h = ((h << 5) - h) + pin.charCodeAt(i), h |= 0;
+  return 'pin_' + Math.abs(h).toString(36);
+}
+
+window.authPin = async function() {
+  const pin = document.getElementById('pin-input').value.trim();
+  if (pin.length < 4) { document.getElementById('auth-err').textContent = 'PIN deve ter pelo menos 4 dígitos.'; return; }
+  const pinHash = hashPin(pin);
+  document.getElementById('auth-err').textContent = '';
+  try {
+    const cred = await signInAnonymously(auth);
+    const userRef = doc(db, 'users', pinHash);
+    const snap = await getDoc(userRef);
+    if (!snap.exists()) {
+      await setDoc(userRef, { created: serverTimestamp(), pinHash });
+    } else {
+      // pin exists — check it's not another anon user (just use pinHash as the real uid)
+    }
+    uid = pinHash;
+    localStorage.setItem('hm_finance_pin', pinHash);
+    showApp();
+  } catch(e) {
+    document.getElementById('auth-err').textContent = 'Erro ao autenticar. Verifica a ligação.';
+    console.error(e);
+  }
+};
+
+window.logout = function() {
+  localStorage.removeItem('hm_finance_pin');
+  uid = null; credits=[]; gastos=[]; incomes=[]; fixed=[];
+  document.getElementById('app-shell').style.display = 'none';
+  document.getElementById('auth-overlay').style.display = 'flex';
+};
+
+function showApp() {
+  document.getElementById('auth-overlay').style.display = 'none';
+  document.getElementById('app-shell').style.display = 'flex';
+  document.getElementById('loading').style.display = 'none';
+  listenData();
+}
+
+// ── FIRESTORE ─────────────────────────────────────────
+function col(name) { return collection(db, 'users', uid, name); }
+function docRef(name, id) { return doc(db, 'users', uid, name, id); }
+
+function setSyncStatus(s) {
+  const dot = document.getElementById('sync-dot');
+  const lbl = document.getElementById('sync-label');
+  if (s === 'saving') { dot.className='sync-dot saving'; lbl.textContent='a guardar...'; }
+  else if (s === 'ok') { dot.className='sync-dot ok'; lbl.textContent='sincronizado'; }
+  else { dot.className='sync-dot'; lbl.textContent='offline'; }
+}
+
+function listenData() {
+  onSnapshot(query(col('credits'), orderBy('ts')), snap => {
+    credits = snap.docs.map(d => ({...d.data(), id: d.id}));
+    renderAll();
+  });
+  onSnapshot(query(col('gastos'), orderBy('ts')), snap => {
+    gastos = snap.docs.map(d => ({...d.data(), id: d.id}));
+    renderAll();
+  });
+  onSnapshot(query(col('incomes'), orderBy('ts')), snap => {
+    incomes = snap.docs.map(d => ({...d.data(), id: d.id}));
+    renderAll();
+  });
+  onSnapshot(query(col('fixed'), orderBy('ts')), snap => {
+    fixed = snap.docs.map(d => ({...d.data(), id: d.id}));
+    renderAll();
+  });
+}
+
+async function saveDoc(colName, data) {
+  setSyncStatus('saving');
+  try {
+    const ref = await addDoc(col(colName), {...data, ts: serverTimestamp()});
+    setSyncStatus('ok');
+    return ref.id;
+  } catch(e) { setSyncStatus('error'); throw e; }
+}
+
+async function delDoc(colName, id) {
+  setSyncStatus('saving');
+  try {
+    await deleteDoc(docRef(colName, id));
+    setSyncStatus('ok');
+  } catch(e) { setSyncStatus('error'); }
+}
+
+// ── INIT ──────────────────────────────────────────────
+onAuthStateChanged(auth, async (user) => {
+  const saved = localStorage.getItem('hm_finance_pin');
+  if (saved) {
+    uid = saved;
+    showApp();
+  } else {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('auth-overlay').style.display = 'flex';
+  }
+});
+
+// ── NAVIGATION ────────────────────────────────────────
+window.go = function(id, btn) {
+  document.querySelectorAll('.sc').forEach(s => s.classList.remove('on'));
+  document.querySelectorAll('.nb').forEach(b => b.classList.remove('on'));
+  document.getElementById('sc-'+id).classList.add('on');
+  btn.classList.add('on');
+  if (id === 'amortizar') { renderAmortSel(); renderCustoTotal(); }
+  if (id === 'exportar') genExp();
+};
+
+window.tog = function(id) { document.getElementById(id).classList.toggle('on'); };
+
+// ── HELPERS ───────────────────────────────────────────
+function fmt(n) { return Number(n).toLocaleString('pt-PT',{minimumFractionDigits:2,maximumFractionDigits:2})+'€'; }
+function badgeC(t) { return {Habitação:'bdg-b',Automóvel:'bdg-a',Pessoal:'bdg-r','Cartão/Revolving':'bdg-r'}[t]||'bdg-gray'; }
+function catColor(c) {
+  return {Alimentação:'#1D9E75',Transportes:'#378ADD',Habitação:'#7F77DD',Saúde:'#E24B4A',Lazer:'#BA7517',Vestuário:'#D4537E',Educação:'#0F6E56',Seguros:'#5F5E5A',Outros:'#888780'}[c]||'#888780';
+}
+function renderAll() {
+  const active = document.querySelector('.sc.on');
+  if (!active) return;
+  const id = active.id.replace('sc-','');
+  if (id==='visao') renderVisao();
+  if (id==='creditos') renderCredits();
+  if (id==='gastos') renderGastos();
+  if (id==='cashflow') renderCashflow();
+}
+
+// ── CREDITS ───────────────────────────────────────────
+window.addCredit = async function() {
+  const tipo = document.getElementById('cft').value;
+  const nome = document.getElementById('cfn').value || tipo;
+  const divida = parseFloat(document.getElementById('cfd').value)||0;
+  const prest = parseFloat(document.getElementById('cfp').value)||0;
+  const taxa = parseFloat(document.getElementById('cfta').value)||0;
+  const inicial = parseFloat(document.getElementById('cfi').value)||divida;
+  const prazo = parseInt(document.getElementById('cfpr').value)||0;
+  const dia = parseInt(document.getElementById('cfdv').value)||1;
+  if (!divida||!prest) { alert('Dívida e prestação são obrigatórios.'); return; }
+  await saveDoc('credits', {tipo,nome,divida,prest,taxa,inicial,prazo,dia});
+  tog('cf-form');
+  ['cfn','cfd','cfp','cfta','cfi','cfpr','cfdv'].forEach(x => document.getElementById(x).value='');
+};
+
+window.delCredit = async function(id) { await delDoc('credits', id); };
+
+function renderCredits() {
+  const el = document.getElementById('cl-list');
+  if (!credits.length) { el.innerHTML='<p style="color:var(--muted);font-size:13px;margin-bottom:12px">Nenhum crédito registado.</p>'; return; }
+  el.innerHTML = credits.map(c => {
+    const jm = c.divida*(c.taxa/100/12);
+    const km = Math.max(c.prest-jm,0);
+    const pct = c.inicial>0 ? Math.min((c.inicial-c.divida)/c.inicial*100,100) : 0;
+    const jTotal = c.prest*c.prazo - c.divida;
+    return `<div class="card">
+      <div class="ch">
+        <div><span class="bdg ${badgeC(c.tipo)}">${c.tipo}</span> <span class="ct" style="margin-left:6px">${c.nome}</span></div>
+        <button class="btn btn-sm btn-d" onclick="delCredit('${c.id}')">✕</button>
+      </div>
+      <div class="row"><span class="rl">capital em dívida</span><span class="rv neg">${fmt(c.divida)}</span></div>
+      <div class="row"><span class="rl">prestação mensal</span><span class="rv">${fmt(c.prest)}</span></div>
+      <div class="row"><span class="rl">taxa TAN</span><span class="rv">${c.taxa.toFixed(2)}%</span></div>
+      <div class="row"><span class="rl">juros mensais</span><span class="rv warn">${fmt(jm)}</span></div>
+      <div class="row"><span class="rl">capital amortizado/mês</span><span class="rv pos">${fmt(km)}</span></div>
+      <div class="row"><span class="rl">prazo restante</span><span class="rv">${c.prazo} meses (${(c.prazo/12).toFixed(1)} anos)</span></div>
+      <div class="row"><span class="rl">custo total em juros</span><span class="rv warn">${fmt(jTotal)}</span></div>
+      <div class="pbar"><div class="pfill" style="width:${pct.toFixed(1)}%"></div></div>
+      <p style="font-size:11px;color:var(--muted);margin-top:5px">${pct.toFixed(1)}% liquidado</p>
+    </div>`;
+  }).join('');
+}
+
+// ── VISÃO ─────────────────────────────────────────────
+function renderVisao() {
+  const totalD = credits.reduce((s,c)=>s+c.divida,0);
+  const totalP = credits.reduce((s,c)=>s+c.prest,0);
+  const totalJ = credits.reduce((s,c)=>s+c.divida*(c.taxa/100/12),0);
+  const totalInc = incomes.reduce((s,i)=>s+i.valor,0);
+  const totalFix = fixed.reduce((s,f)=>s+f.valor,0);
+  const now = new Date();
+  const gastMes = gastos.filter(g=>{const d=new Date(g.data);return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();}).reduce((s,g)=>s+g.val,0);
+  const livre = totalInc - totalP - totalFix - gastMes;
+
+  document.getElementById('v-metrics').innerHTML = `
+    <div class="met"><div class="met-l">total em dívida</div><div class="met-v neg">${fmt(totalD)}</div></div>
+    <div class="met"><div class="met-l">prestações/mês</div><div class="met-v warn">${fmt(totalP)}</div></div>
+    <div class="met"><div class="met-l">juros/mês</div><div class="met-v neg">${fmt(totalJ)}</div></div>
+    <div class="met"><div class="met-l">rendimento mensal</div><div class="met-v">${fmt(totalInc)}</div></div>
+    <div class="met"><div class="met-l">saldo livre/mês</div><div class="met-v ${livre>=0?'pos':'neg'}">${fmt(livre)}</div></div>
+  `;
+
+  document.getElementById('v-credits').innerHTML = credits.length ? credits.map(c => {
+    const jm = c.divida*(c.taxa/100/12);
+    const km = Math.max(c.prest-jm,0);
+    const ratioJ = c.prest>0?(jm/c.prest*100):0;
+    return `<div class="card">
+      <div class="ch">
+        <div><span class="bdg ${badgeC(c.tipo)}">${c.tipo}</span> <span style="font-size:13px;font-weight:500;margin-left:6px">${c.nome}</span></div>
+        <span style="font-size:12px;color:${ratioJ>50?'#c0392b':'#27a06a'}">${ratioJ.toFixed(0)}% da prestação em juros</span>
+      </div>
+      <div class="row"><span class="rl">juros mensais</span><span class="rv warn">${fmt(jm)}</span></div>
+      <div class="row"><span class="rl">capital/mês</span><span class="rv pos">${fmt(km)}</span></div>
+      <div class="row"><span class="rl">TAN</span><span class="rv">${c.taxa.toFixed(2)}%</span></div>
+    </div>`;
+  }).join('') : '<p style="color:var(--muted);font-size:13px">Sem créditos registados.</p>';
+
+  const alerts = [];
+  credits.forEach(c => {
+    const jm = c.divida*(c.taxa/100/12);
+    const ratioJ = c.prest>0?(jm/c.prest*100):0;
+    if (ratioJ>60) alerts.push({t:'w', m:`${c.nome}: ${ratioJ.toFixed(0)}% da prestação vai para juros — amortização tem alto impacto.`});
+    if (c.taxa>5) alerts.push({t:'w', m:`${c.nome}: taxa ${c.taxa}% acima da média — considera refinanciar.`});
+  });
+  if (totalInc>0&&totalP/totalInc>0.35) alerts.push({t:'w', m:`Taxa de esforço: ${(totalP/totalInc*100).toFixed(0)}% do rendimento em prestações (limite recomendado: 35%).`});
+  if (livre<0) alerts.push({t:'w', m:`Saldo mensal negativo: ${fmt(Math.abs(livre))} a descoberto.`});
+  if (!alerts.length) alerts.push({t:'g', m:'Sem alertas críticos.'});
+  document.getElementById('v-alerts').innerHTML = alerts.map(a=>`<div class="alert al-${a.t==='w'?'w':'g'}">${a.m}</div>`).join('');
+
+  document.getElementById('v-cf').innerHTML = `
+    <div class="row"><span class="rl">rendimentos</span><span class="rv pos">${fmt(totalInc)}</span></div>
+    <div class="row"><span class="rl">prestações crédito</span><span class="rv neg">−${fmt(totalP)}</span></div>
+    <div class="row"><span class="rl">despesas fixas</span><span class="rv neg">−${fmt(totalFix)}</span></div>
+    <div class="row"><span class="rl">gastos variáveis (mês)</span><span class="rv neg">−${fmt(gastMes)}</span></div>
+    <div class="row" style="padding-top:10px;border-top:0.5px solid var(--border-md)">
+      <span style="font-size:14px;font-weight:500">saldo livre</span>
+      <span style="font-size:16px;font-weight:500;color:${livre>=0?'var(--green)':'var(--red)'}">${livre>=0?'+':''}${fmt(livre)}</span>
+    </div>`;
+}
+
+// ── AMORTIZAR ─────────────────────────────────────────
+function renderAmortSel() {
+  ['sa-c','sv-c'].forEach(id => {
+    const s = document.getElementById(id);
+    s.innerHTML = '<option value="">— selecionar —</option>' + credits.map(c=>`<option value="${c.id}">${c.nome}</option>`).join('');
+  });
+}
+
+window.calcAmort = function() {
+  const cid = document.getElementById('sa-c').value;
+  const mont = parseFloat(document.getElementById('sa-v').value)||0;
+  const tipo = document.getElementById('sa-t').value;
+  const c = credits.find(x=>x.id===cid);
+  if (!c||!mont) { document.getElementById('sa-r').innerHTML='<div class="alert al-w" style="margin-top:10px">Seleciona crédito e valor.</div>'; return; }
+  const novaDivida = Math.max(c.divida-mont,0);
+  const tm = c.taxa/100/12;
+  let html = '';
+  if (tipo==='prestacao') {
+    const np = tm>0 ? novaDivida*tm/(1-Math.pow(1+tm,-c.prazo)) : novaDivida/c.prazo;
+    const poupM = c.prest-np;
+    const roi = mont>0?((poupM*c.prazo/mont)*100):0;
+    html = `<div class="sim-box">
+      <div class="sr"><span class="l">dívida antes</span><span class="v neg">${fmt(c.divida)}</span></div>
+      <div class="sr"><span class="l">dívida depois</span><span class="v pos">${fmt(novaDivida)}</span></div>
+      <div class="sr"><span class="l">prestação atual</span><span class="v">${fmt(c.prest)}</span></div>
+      <div class="sr"><span class="l">nova prestação</span><span class="v pos">${fmt(np)}</span></div>
+      <div class="sr"><span class="l">poupança mensal</span><span class="v pos">−${fmt(poupM)}/mês</span></div>
+      <div class="sr"><span class="l">juros poupados (total)</span><span class="v pos">${fmt(poupM*c.prazo)}</span></div>
+      <div class="sr hl"><span class="l">ROI da amortização</span><span class="v">${roi.toFixed(0)}% sobre o montante</span></div>
+    </div>`;
+  } else {
+    const np2 = Math.log(c.prest/(c.prest-novaDivida*tm))/Math.log(1+tm);
+    const red = c.prazo-np2;
+    html = `<div class="sim-box">
+      <div class="sr"><span class="l">prazo atual</span><span class="v">${c.prazo} meses</span></div>
+      <div class="sr"><span class="l">novo prazo</span><span class="v pos">${Math.round(np2)} meses (${(np2/12).toFixed(1)} anos)</span></div>
+      <div class="sr"><span class="l">redução de prazo</span><span class="v pos">${Math.round(red)} meses</span></div>
+      <div class="sr hl"><span class="l">juros poupados</span><span class="v pos">${fmt(Math.round(red)*c.prest)}</span></div>
+    </div>`;
+  }
+  document.getElementById('sa-r').innerHTML = html;
+};
+
+window.calcVariacao = function() {
+  const cid = document.getElementById('sv-c').value;
+  const novaTaxa = parseFloat(document.getElementById('sv-t').value);
+  const c = credits.find(x=>x.id===cid);
+  if (!c||!novaTaxa) { document.getElementById('sv-r').innerHTML='<div class="alert al-w" style="margin-top:10px">Seleciona crédito e nova taxa.</div>'; return; }
+  const tm = c.taxa/100/12;
+  const ntm = novaTaxa/100/12;
+  const np = ntm>0 ? c.divida*ntm/(1-Math.pow(1+ntm,-c.prazo)) : c.divida/c.prazo;
+  const diff = np - c.prest;
+  document.getElementById('sv-r').innerHTML = `<div class="sim-box">
+    <div class="sr"><span class="l">taxa atual</span><span class="v">${c.taxa.toFixed(2)}%</span></div>
+    <div class="sr"><span class="l">nova taxa</span><span class="v">${novaTaxa.toFixed(2)}%</span></div>
+    <div class="sr"><span class="l">prestação atual</span><span class="v">${fmt(c.prest)}</span></div>
+    <div class="sr"><span class="l">nova prestação</span><span class="v ${diff>0?'neg':'pos'}">${fmt(np)}</span></div>
+    <div class="sr hl"><span class="l">variação mensal</span><span class="v ${diff>0?'neg':'pos'}">${diff>0?'+':''}${fmt(diff)}/mês</span></div>
+    <div class="sr"><span class="l">impacto anual</span><span class="v ${diff>0?'neg':'pos'}">${diff>0?'+':''}${fmt(diff*12)}/ano</span></div>
+  </div>`;
+};
+
+function renderCustoTotal() {
+  const el = document.getElementById('sa-total');
+  if (!credits.length) { el.innerHTML='<p style="color:var(--muted);font-size:13px">Nenhum crédito.</p>'; return; }
+  const rows = credits.map(c => {
+    const jT = c.prest*c.prazo - c.divida;
+    const ef = c.divida>0?(jT/c.divida*100):0;
+    return `<div class="row"><span class="rl">${c.nome}</span>
+      <span style="text-align:right"><span class="rv warn">${fmt(jT)} em juros</span><br><span style="font-size:11px;color:var(--muted)">custo efetivo ${ef.toFixed(0)}% do capital</span></span>
+    </div>`;
+  }).join('');
+  const totalJ = credits.reduce((s,c)=>s+(c.prest*c.prazo-c.divida),0);
+  el.innerHTML = rows + `<div class="row" style="padding-top:10px"><span style="font-weight:500;font-size:14px">total em juros</span><span style="font-size:15px;font-weight:500;color:var(--red)">${fmt(totalJ)}</span></div>`;
+}
+
+// ── GASTOS ────────────────────────────────────────────
+window.addGasto = async function() {
+  const desc = document.getElementById('gfd').value;
+  const val = parseFloat(document.getElementById('gfv').value)||0;
+  const cat = document.getElementById('gfc').value;
+  const data = document.getElementById('gfdt').value || new Date().toISOString().split('T')[0];
+  if (!val) { alert('Insere um valor.'); return; }
+  await saveDoc('gastos', {desc:desc||cat, val, cat, data});
+  tog('gf-form');
+  document.getElementById('gfd').value=''; document.getElementById('gfv').value='';
+};
+
+window.delGasto = async function(id) { await delDoc('gastos', id); };
+
+window.filterCat = function(cat, btn) {
+  activeCat = cat;
+  document.querySelectorAll('#g-cats .pill').forEach(p=>p.classList.remove('on'));
+  btn.classList.add('on');
+  renderGastos();
+};
+
+function renderGastos() {
+  const now = new Date();
+  const gm = gastos.filter(g=>{const d=new Date(g.data);return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();});
+  const total = gm.reduce((s,g)=>s+g.val,0);
+  const cats = [...new Set(gm.map(g=>g.cat))];
+  document.getElementById('g-summary').innerHTML = `
+    <div class="met"><div class="met-l">total este mês</div><div class="met-v neg">${fmt(total)}</div></div>
+    <div class="met"><div class="met-l">registos</div><div class="met-v">${gm.length}</div></div>
+    <div class="met"><div class="met-l">categorias</div><div class="met-v">${cats.length}</div></div>`;
+  document.getElementById('g-cats').innerHTML =
+    `<button class="pill ${activeCat==='all'?'on':''}" onclick="filterCat('all',this)">todos</button>` +
+    cats.map(c=>`<button class="pill ${activeCat===c?'on':''}" onclick="filterCat('${c}',this)" style="border-left:2px solid ${catColor(c)}">${c}</button>`).join('');
+  const filtered = (activeCat==='all'?gm:gm.filter(g=>g.cat===activeCat)).slice().sort((a,b)=>new Date(b.data)-new Date(a.data));
+  const el = document.getElementById('g-list');
+  if (!filtered.length) { el.innerHTML='<p style="color:var(--muted);font-size:13px;padding:1rem 0">Sem registos.</p>'; return; }
+  el.innerHTML = filtered.map(g=>`<div class="card" style="padding:10px 14px;margin-bottom:6px">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="cat-dot" style="background:${catColor(g.cat)}"></span>
+        <div>
+          <div style="font-size:13px;font-weight:500">${g.desc}</div>
+          <div style="font-size:11px;color:var(--muted)">${g.cat} · ${new Date(g.data+'T12:00:00').toLocaleDateString('pt-PT')}</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:14px;font-weight:500;color:var(--red)">${fmt(g.val)}</span>
+        <button class="btn btn-sm btn-d" onclick="delGasto('${g.id}')">✕</button>
+      </div>
+    </div></div>`).join('');
+}
+
+// ── CASH FLOW ─────────────────────────────────────────
+window.addIncome = async function() {
+  const desc = document.getElementById('ifd').value;
+  const valor = parseFloat(document.getElementById('ifv').value)||0;
+  const tipo = document.getElementById('ift').value;
+  if (!valor) return;
+  await saveDoc('incomes', {desc:desc||tipo, valor, tipo});
+  tog('if-form');
+  document.getElementById('ifd').value=''; document.getElementById('ifv').value='';
+};
+
+window.addFixed = async function() {
+  const desc = document.getElementById('ffd').value;
+  const valor = parseFloat(document.getElementById('ffv').value)||0;
+  const cat = document.getElementById('ffc').value;
+  if (!valor) return;
+  await saveDoc('fixed', {desc:desc||cat, valor, cat});
+  tog('ff-form');
+  document.getElementById('ffd').value=''; document.getElementById('ffv').value='';
+};
+
+window.delIncome = async function(id) { await delDoc('incomes', id); };
+window.delFixed = async function(id) { await delDoc('fixed', id); };
+
+function renderCashflow() {
+  const ilEl = document.getElementById('inc-list');
+  ilEl.innerHTML = incomes.length ? incomes.map(i=>`<div class="card" style="padding:10px 14px;margin-bottom:6px">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div><div style="font-size:13px;font-weight:500">${i.desc}</div><div style="font-size:11px;color:var(--muted)">${i.tipo}</div></div>
+      <div style="display:flex;align-items:center;gap:8px"><span style="font-size:14px;font-weight:500;color:var(--green)">${fmt(i.valor)}</span>
+      <button class="btn btn-sm btn-d" onclick="delIncome('${i.id}')">✕</button></div>
+    </div></div>`).join('') : '<p style="color:var(--muted);font-size:13px;margin-bottom:12px">Nenhum rendimento.</p>';
+
+  const flEl = document.getElementById('fix-list');
+  flEl.innerHTML = fixed.length ? fixed.map(f=>`<div class="card" style="padding:10px 14px;margin-bottom:6px">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div><div style="font-size:13px;font-weight:500">${f.desc}</div><div style="font-size:11px;color:var(--muted)">${f.cat}</div></div>
+      <div style="display:flex;align-items:center;gap:8px"><span style="font-size:14px;font-weight:500;color:var(--red)">${fmt(f.valor)}</span>
+      <button class="btn btn-sm btn-d" onclick="delFixed('${f.id}')">✕</button></div>
+    </div></div>`).join('') : '<p style="color:var(--muted);font-size:13px;margin-bottom:12px">Nenhuma despesa fixa.</p>';
+
+  const totalInc = incomes.reduce((s,i)=>s+i.valor,0);
+  const totalFix = fixed.reduce((s,f)=>s+f.valor,0);
+  const totalP = credits.reduce((s,c)=>s+c.prest,0);
+  const now = new Date();
+  const gastMes = gastos.filter(g=>{const d=new Date(g.data);return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();}).reduce((s,g)=>s+g.val,0);
+  const saldo = totalInc - totalFix - totalP - gastMes;
+  const taxaEsf = totalInc>0?(totalP/totalInc*100):0;
+
+  document.getElementById('cf-breakdown').innerHTML = `
+    <div class="row"><span class="rl">rendimentos</span><span class="rv pos">${fmt(totalInc)}</span></div>
+    <div class="row"><span class="rl">prestações crédito</span><span class="rv neg">−${fmt(totalP)} <span style="font-size:11px;color:var(--muted)">(${totalInc>0?(totalP/totalInc*100).toFixed(0):0}%)</span></span></div>
+    <div class="row"><span class="rl">despesas fixas</span><span class="rv neg">−${fmt(totalFix)}</span></div>
+    <div class="row"><span class="rl">gastos variáveis (mês)</span><span class="rv neg">−${fmt(gastMes)}</span></div>
+    <div class="row" style="padding-top:10px"><span style="font-size:14px;font-weight:500">saldo livre</span>
+      <span style="font-size:16px;font-weight:500;color:${saldo>=0?'var(--green)':'var(--red)'}">${saldo>=0?'+':''}${fmt(saldo)}</span></div>
+    ${taxaEsf>35?`<div class="alert al-w" style="margin-top:10px">taxa de esforço: ${taxaEsf.toFixed(0)}% — acima do limite recomendado de 35%.</div>`:''}`;
+
+  if (cfChart) cfChart.destroy();
+  cfChart = new Chart(document.getElementById('cf-chart'), {
+    type: 'bar',
+    data: {
+      labels: ['rendimentos','prestações','fixas','variáveis','saldo livre'],
+      datasets: [{
+        label: '€',
+        data: [totalInc,-totalP,-totalFix,-gastMes,saldo],
+        backgroundColor: ['#27a06a','#c0392b','#b87333','#7F77DD',saldo>=0?'#27a06a':'#c0392b'],
+        borderRadius: 4, borderSkipped: false
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { ticks: { callback: v=>(v<0?'−':'')+Math.abs(v).toLocaleString('pt-PT')+'€', font:{size:11}, color:'#888780' }, grid: { color:'rgba(255,255,255,.05)' } },
+        x: { ticks: { font:{size:11}, color:'#888780' }, grid: { display:false } }
+      }
+    }
+  });
+}
+
+// ── EXPORT ────────────────────────────────────────────
+window.genExp = function() {
+  const now = new Date().toLocaleString('pt-PT');
+  const totalD = credits.reduce((s,c)=>s+c.divida,0);
+  const totalP = credits.reduce((s,c)=>s+c.prest,0);
+  const totalJ = credits.reduce((s,c)=>s+c.divida*(c.taxa/100/12),0);
+  const totalInc = incomes.reduce((s,i)=>s+i.valor,0);
+  const totalFix = fixed.reduce((s,f)=>s+f.valor,0);
+  const mn = new Date();
+  const gastMes = gastos.filter(g=>{const d=new Date(g.data);return d.getMonth()===mn.getMonth()&&d.getFullYear()===mn.getFullYear();}).reduce((s,g)=>s+g.val,0);
+  const saldo = totalInc-totalP-totalFix-gastMes;
+  const taxaEsf = totalInc>0?(totalP/totalInc*100):0;
+  let txt = `══════════════════════════════════
+RESUMO FINANCEIRO PESSOAL
+${now}
+══════════════════════════════════
+
+CASH FLOW MENSAL
+• Rendimentos:         ${fmt(totalInc)}
+• Prestações crédito:  ${fmt(totalP)} (taxa esforço: ${taxaEsf.toFixed(1)}%)
+• Despesas fixas:      ${fmt(totalFix)}
+• Gastos variáveis:    ${fmt(gastMes)}
+• Saldo livre:         ${saldo>=0?'+':''}${fmt(saldo)}
+
+──────────────────────────────────
+CRÉDITOS (${credits.length})
+──────────────────────────────────
+`;
+  credits.forEach((c,i)=>{
+    const jm=c.divida*(c.taxa/100/12);
+    const km=Math.max(c.prest-jm,0);
+    const jT=c.prest*c.prazo-c.divida;
+    txt+=`${i+1}. ${c.nome} [${c.tipo}]
+   Capital em dívida:   ${fmt(c.divida)}
+   Prestação/mês:       ${fmt(c.prest)}
+   TAN:                 ${c.taxa.toFixed(2)}%
+   Juros/mês:           ${fmt(jm)} (${c.prest>0?(jm/c.prest*100).toFixed(0):0}% da prestação)
+   Capital/mês:         ${fmt(km)}
+   Prazo:               ${c.prazo} meses
+   Custo total (juros): ${fmt(jT)}\n\n`;
+  });
+  txt += `──────────────────────────────────
+RENDIMENTOS (${incomes.length})
+──────────────────────────────────
+`;
+  incomes.forEach((i,idx)=>txt+=`${idx+1}. ${i.desc} [${i.tipo}]: ${fmt(i.valor)}/mês\n`);
+  txt += `\n──────────────────────────────────
+DESPESAS FIXAS (${fixed.length})
+──────────────────────────────────
+`;
+  fixed.forEach((f,i)=>txt+=`${i+1}. ${f.desc} [${f.cat}]: ${fmt(f.valor)}/mês\n`);
+  if (gastos.length) {
+    txt += `\n──────────────────────────────────
+GASTOS VARIÁVEIS — MÊS ATUAL
+──────────────────────────────────
+`;
+    const gm2 = gastos.filter(g=>{const d=new Date(g.data);return d.getMonth()===mn.getMonth()&&d.getFullYear()===mn.getFullYear();});
+    const byCat = {};
+    gm2.forEach(g=>{if(!byCat[g.cat])byCat[g.cat]=0;byCat[g.cat]+=g.val;});
+    Object.entries(byCat).forEach(([c,v])=>txt+=`• ${c}: ${fmt(v)}\n`);
+    txt += `Total: ${fmt(gastMes)}\n`;
+  }
+  txt += `\n══════════════════════════════════`;
+  document.getElementById('exp-txt').textContent = txt;
+};
+
+window.copyExp = function() {
+  navigator.clipboard.writeText(document.getElementById('exp-txt').textContent).then(()=>{
+    const b = event.currentTarget;
+    b.textContent = 'copiado!';
+    setTimeout(()=>{ b.textContent='copiar'; },2000);
+  });
+};
+
+document.getElementById('gfdt').value = new Date().toISOString().split('T')[0];
+</script>
+</body>
+</html>
