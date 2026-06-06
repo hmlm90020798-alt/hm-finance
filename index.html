@@ -96,6 +96,7 @@ select option{background:#222}
     <button class="nb" onclick="go('simulador',this)">simulador</button>
     <button class="nb" onclick="go('cashflow',this)">cash flow</button>
     <button class="nb" onclick="go('plano',this)">plano</button>
+    <button class="nb" onclick="go('patrimonio',this)">patrimônio</button>
     <button class="nb" onclick="go('exportar',this)">exportar</button>
   </nav>
   <main>
@@ -229,6 +230,25 @@ select option{background:#222}
       <p class="note">12 meses sem agir = ~2 544€ em juros desnecessários.</p>
     </div>
 
+    <div id="sc-patrimonio" class="sc">
+      <div class="st">activos — o que tens</div>
+      <div id="pat-list"></div>
+      <button class="btn" onclick="tog('pat-form')" style="margin-bottom:10px">+ activo</button>
+      <div id="pat-form" style="display:none" class="card">
+        <div class="g2">
+          <div><label>descrição</label><input id="patd" placeholder="ex: CGD conta à ordem"></div>
+          <div><label>valor (€)</label><input id="patv" type="number" placeholder="467.61"></div>
+        </div>
+        <div class="g2">
+          <div><label>tipo</label><select id="patt"><option>Conta à ordem</option><option>Conta poupança</option><option>Carteira (dinheiro)</option><option>PPR</option><option>Ações/Fundos</option><option>Outro</option></select></div>
+          <div style="display:flex;align-items:flex-end"><button class="btn btn-gold" style="width:100%" onclick="addAtivo()">guardar</button></div>
+        </div>
+        <button class="btn" onclick="tog('pat-form')" style="margin-top:8px">cancelar</button>
+      </div>
+      <div class="st">resumo patrimonial</div>
+      <div id="pat-summary"></div>
+    </div>
+
     <div id="sc-exportar" class="sc">
       <div style="background:var(--blue-bg);border:0.5px solid rgba(58,123,213,.3);border-radius:var(--radius);padding:10px 13px;font-size:12px;color:#6fa3e8;margin-bottom:12px;line-height:1.5">Copia e cola numa conversa com Claude para análise detalhada.</div>
       <div id="exp-txt" class="exp-box">A gerar...</div>
@@ -244,7 +264,7 @@ select option{background:#222}
 <script type="module">
 import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import{getAuth,signInAnonymously,onAuthStateChanged}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import{getFirestore,doc,getDoc,setDoc,collection,onSnapshot,addDoc,deleteDoc,serverTimestamp,query,orderBy}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import{getFirestore,doc,getDoc,setDoc,collection,onSnapshot,addDoc,deleteDoc,getDocs,serverTimestamp,query,orderBy}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const FB={apiKey:"AIzaSyBhnDODDgjU5AMjCJxPY54DTaYd7tfBhJE",authDomain:"hm-finance-7acb8.firebaseapp.com",projectId:"hm-finance-7acb8",storageBucket:"hm-finance-7acb8.firebasestorage.app",messagingSenderId:"1022016586396",appId:"1:1022016586396:web:588a7fc420611bfba9e359"};
 const CR=[
@@ -259,7 +279,7 @@ const CR=[
 const app2=initializeApp(FB);
 const auth=getAuth(app2);
 const db=getFirestore(app2);
-let uid=null,incomes=[],fixed=[];
+let uid=null,incomes=[],fixed=[],ativos=[];
 const CH={};
 
 function fmt(n){return Number(n).toLocaleString('pt-PT',{minimumFractionDigits:2,maximumFractionDigits:2})+'€'}
@@ -284,12 +304,14 @@ function showApp(){
   document.getElementById('auth-overlay').style.display='none';
   document.getElementById('app-shell').style.display='flex';
   document.getElementById('loading').style.display='none';
-  listenData();buildVisao();buildCreditos();buildOrdem();renderSim();renderCF();
+  listenData();buildVisao();buildCreditos();buildOrdem();renderSim();renderCF();renderPatrimonio();
+  prePopulateAtivos();
 }
 
 function listenData(){
   onSnapshot(query(collection(db,'users',uid,'incomes'),orderBy('ts')),s=>{incomes=s.docs.map(d=>({...d.data(),id:d.id}));renderCF();});
   onSnapshot(query(collection(db,'users',uid,'fixed'),orderBy('ts')),s=>{fixed=s.docs.map(d=>({...d.data(),id:d.id}));renderCF();});
+  onSnapshot(query(collection(db,'users',uid,'ativos'),orderBy('ts')),s=>{ativos=s.docs.map(d=>({...d.data(),id:d.id}));renderPatrimonio();});
 }
 
 async function sv(col,data){setSS('saving');try{await addDoc(collection(db,'users',uid,col),{...data,ts:serverTimestamp()});setSS('ok');}catch(e){setSS('ok');}}
@@ -299,6 +321,58 @@ window.addIncome=async function(){const d=document.getElementById('ifd').value;c
 window.addFixed=async function(){const d=document.getElementById('ffd').value;const v=parseFloat(document.getElementById('ffv').value)||0;if(!v)return;await sv('fixed',{desc:d||'Despesa',valor:v});document.getElementById('ffd').value='';document.getElementById('ffv').value='';tog('ff-form');};
 window.delIncome=async function(id){await dl('incomes',id);};
 window.delFixed=async function(id){await dl('fixed',id);};
+
+window.addAtivo=async function(){
+  const d=document.getElementById('patd').value;
+  const v=parseFloat(document.getElementById('patv').value)||0;
+  const t=document.getElementById('patt').value;
+  if(!v)return;
+  await sv('ativos',{desc:d||t,valor:v,tipo:t});
+  document.getElementById('patd').value='';
+  document.getElementById('patv').value='';
+  tog('pat-form');
+};
+window.delAtivo=async function(id){await dl('ativos',id);};
+
+async function prePopulateAtivos(){
+  const col=collection(db,'users',uid,'ativos');
+  const sn=await getDocs(col);
+  if(sn.size>0)return;
+  const defaults=[
+    {desc:'CGD conta à ordem',valor:467.61,tipo:'Conta à ordem'},
+    {desc:'NB conta à ordem',valor:877.64,tipo:'Conta à ordem'},
+    {desc:'NB conta poupança',valor:1500.00,tipo:'Conta poupança'},
+    {desc:'Carteira (dinheiro)',valor:0,tipo:'Carteira (dinheiro)'},
+  ];
+  for(const d of defaults)await sv('ativos',d);
+}
+
+
+function renderPatrimonio(){
+  const tA=ativos.reduce((s,a)=>s+a.valor,0);
+  const tD=CR.reduce((s,c)=>s+c.cap,0);
+  const patLiq=tA-tD;
+  document.getElementById('pat-list').innerHTML=ativos.length
+    ?ativos.map(a=>`<div class="card" style="padding:10px 14px;margin-bottom:6px"><div style="display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:13px;font-weight:500">${a.desc}</div><div style="font-size:11px;color:var(--muted);margin-top:2px">${a.tipo}</div></div><div style="display:flex;align-items:center;gap:8px"><span style="font-size:14px;font-weight:500;color:var(--green)">${fmt(a.valor)}</span><button class="btn" style="padding:3px 8px;font-size:11px;color:var(--red);border-color:rgba(192,57,43,.4)" onclick="delAtivo('${a.id}')">✕</button></div></div></div>`).join('')
+    :`<p style="color:var(--muted);font-size:13px;margin-bottom:12px">Nenhum activo registado.</p>`;
+  document.getElementById('pat-summary').innerHTML=`
+    <div class="metrics">
+      <div class="met"><div class="met-l">total activos</div><div class="met-v g">${fmt(tA)}</div></div>
+      <div class="met"><div class="met-l">total dívida</div><div class="met-v r">${fmt(tD)}</div></div>
+      <div class="met" style="grid-column:span 2"><div class="met-l">patrimônio líquido</div><div class="met-v ${patLiq>=0?'g':'r'}">${patLiq>=0?'+':''}${fmt(patLiq)}</div></div>
+    </div>
+    <div class="card ${patLiq>=0?'gl':'rl'}">
+      <div class="row"><span class="rl2">activos registados</span><span class="rv2 g">${fmt(tA)}</span></div>
+      <div class="row"><span class="rl2">dívida total</span><span class="rv2 r">−${fmt(tD)}</span></div>
+      <div class="row" style="padding-top:8px">
+        <span style="font-size:14px;font-weight:500">patrimônio líquido</span>
+        <span style="font-size:16px;font-weight:500;color:${patLiq>=0?'var(--green)':'var(--red)'}">${patLiq>=0?'+':''}${fmt(patLiq)}</span>
+      </div>
+    </div>
+    ${tA>0&&tA<2000?'<div style="background:var(--amber-bg);border-radius:var(--radius);padding:10px 13px;font-size:12px;color:#d4956a;margin-top:8px;line-height:1.5">Reserva de activos baixa face à dívida. Considera manter um fundo de emergência de 3–6 meses de despesas antes de amortizar créditos.</div>':''}
+  `;
+}
+
 
 onAuthStateChanged(auth,()=>{const saved=localStorage.getItem('hm_pin');if(saved){uid=saved;showApp();}else{document.getElementById('loading').style.display='none';document.getElementById('auth-overlay').style.display='flex';}});
 
