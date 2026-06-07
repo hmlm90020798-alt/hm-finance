@@ -178,16 +178,21 @@ select option{background:#222}
 
     <!-- GASTOS -->
     <div id="sc-gastos" class="sc">
+      <!-- toggle gastos / entradas -->
+      <div style="display:flex;gap:0;background:var(--surface);border-radius:var(--radius);padding:3px;margin-bottom:14px;border:0.5px solid var(--border)">
+        <button id="toggle-gastos" onclick="setMovTab('gastos')" style="flex:1;background:var(--red);border:none;border-radius:7px;padding:7px;font-size:12px;font-weight:500;color:#fff;cursor:pointer;font-family:inherit">saídas</button>
+        <button id="toggle-entradas" onclick="setMovTab('entradas')" style="flex:1;background:none;border:none;border-radius:7px;padding:7px;font-size:12px;font-weight:500;color:var(--muted);cursor:pointer;font-family:inherit">entradas</button>
+      </div>
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
         <div style="display:flex;gap:6px;align-items:center">
           <button class="btn" style="padding:5px 10px;font-size:12px" onclick="mudaMes(-1)">‹</button>
           <span id="mes-label" style="font-size:13px;font-weight:500;min-width:100px;text-align:center"></span>
           <button class="btn" style="padding:5px 10px;font-size:12px" onclick="mudaMes(1)">›</button>
         </div>
-        <div id="g-total-mes" style="font-size:14px;font-weight:500;color:var(--red)"></div>
+        <div id="g-total-mes" style="font-size:14px;font-weight:500"></div>
       </div>
       <div id="gastos-list"></div>
-      <div id="gastos-empty" style="display:none;text-align:center;padding:40px 0;color:var(--muted);font-size:13px">Sem gastos registados neste mês.<br>Usa o botão + para adicionar.</div>
+      <div id="gastos-empty" style="display:none;text-align:center;padding:40px 0;color:var(--muted);font-size:13px"></div>
     </div>
 
     <!-- ANÁLISE -->
@@ -316,7 +321,35 @@ select option{background:#222}
 </div>
 
 <!-- FAB -->
-<button class="fab" id="fab-btn" onclick="openModal()" style="display:none" aria-label="Registar gasto">+</button>
+<!-- Modal entrada de dinheiro -->
+<div id="entrada-modal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeEntradaModal()">
+  <div class="modal">
+    <div class="modal-title">registar entrada</div>
+    <div style="margin-bottom:10px">
+      <label>tipo de entrada</label>
+      <div id="entrada-chips" style="margin-top:4px"></div>
+    </div>
+    <div class="g2">
+      <div><label>valor (€)</label><input id="e-val" type="number" step="0.01" placeholder="0.00" inputmode="decimal"></div>
+      <div><label>data</label><input id="e-data" type="date"></div>
+    </div>
+    <div style="margin-bottom:10px"><label>descrição (opcional)</label><input id="e-desc" type="text" placeholder="ex: Salário junho"></div>
+    <div style="margin-bottom:12px">
+      <label>destino do dinheiro</label>
+      <div id="destino-chips" style="margin-top:4px"></div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-gold" style="flex:1" onclick="saveEntrada()">guardar</button>
+      <button class="btn" onclick="closeEntradaModal()">cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- FABs — dois botões: gasto (vermelho) e entrada (verde) -->
+<div style="position:fixed;bottom:24px;right:20px;display:flex;flex-direction:column;gap:10px;z-index:40" id="fab-group" style="display:none">
+  <button class="fab" id="fab-entrada" onclick="openEntradaModal()" style="display:none;background:var(--green);box-shadow:0 4px 16px rgba(39,160,106,.35)" aria-label="Registar entrada" title="entrada">↓</button>
+  <button class="fab" id="fab-btn" onclick="openModal()" style="display:none" aria-label="Registar gasto" title="gasto">+</button>
+</div>
 
 <script type="module">
 import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
@@ -351,7 +384,7 @@ const db=getFirestore(app2);
 let uid=null,incomes=[],fixed=[],ativos=[],gastos=[];
 const CH={};
 let mesSel=new Date();mesSel.setDate(1);
-let catSel=null,subcatSel=null,origemSel=null;
+let catSel=null,subcatSel=null,origemSel=null,entradaSel=null,destinoSel=null,movTab='gastos';
 
 // ── UTILS ──
 function fmt(n){return Number(n).toLocaleString('pt-PT',{minimumFractionDigits:2,maximumFractionDigits:2})+'€'}
@@ -372,13 +405,14 @@ window.authPin=async function(){
   try{await signInAnonymously(auth);const ur=doc(db,'users',ph);const sn=await getDoc(ur);if(!sn.exists())await setDoc(ur,{created:serverTimestamp()});uid=ph;localStorage.setItem('hm_pin',ph);showApp();}
   catch(e){document.getElementById('auth-err').textContent='Erro ao autenticar.';}
 };
-window.logout=function(){localStorage.removeItem('hm_pin');uid=null;incomes=[];fixed=[];ativos=[];gastos=[];document.getElementById('app-shell').style.display='none';document.getElementById('fab-btn').style.display='none';document.getElementById('auth-overlay').style.display='flex';};
+window.logout=function(){localStorage.removeItem('hm_pin');uid=null;incomes=[];fixed=[];ativos=[];gastos=[];document.getElementById('app-shell').style.display='none';document.getElementById('fab-btn').style.display='none';document.getElementById('fab-entrada').style.display='none';document.getElementById('auth-overlay').style.display='flex';};
 onAuthStateChanged(auth,()=>{const saved=localStorage.getItem('hm_pin');if(saved){uid=saved;showApp();}else{document.getElementById('loading').style.display='none';document.getElementById('auth-overlay').style.display='flex';}});
 
 function showApp(){
   document.getElementById('auth-overlay').style.display='none';
   document.getElementById('app-shell').style.display='flex';
   document.getElementById('fab-btn').style.display='flex';
+  document.getElementById('fab-entrada').style.display='flex';
   document.getElementById('loading').style.display='none';
   listenData();
   buildCreditos();buildOrdem();
@@ -390,6 +424,7 @@ function listenData(){
   onSnapshot(query(collection(db,'users',uid,'incomes'),orderBy('ts')),s=>{incomes=s.docs.map(d=>({...d.data(),id:d.id}));renderCF();buildVisao();});
   onSnapshot(query(collection(db,'users',uid,'fixed'),orderBy('ts')),s=>{fixed=s.docs.map(d=>({...d.data(),id:d.id}));renderCF();buildVisao();});
   onSnapshot(query(collection(db,'users',uid,'ativos'),orderBy('ts')),s=>{ativos=s.docs.map(d=>({...d.data(),id:d.id}));renderPatrimonio();if(s.size===0)prePopulateAtivos();});
+  onSnapshot(query(collection(db,'users',uid,'entradas'),orderBy('data','desc')),s=>{entradas=s.docs.map(d=>({...d.data(),id:d.id}));renderGastos();renderAnalise();buildVisao();});
   onSnapshot(query(collection(db,'users',uid,'gastos'),orderBy('data','desc')),s=>{gastos=s.docs.map(d=>({...d.data(),id:d.id}));renderGastos();renderAnalise();buildVisao();});
 }
 async function sv(col,data){setSS('saving');try{await addDoc(collection(db,'users',uid,col),{...data,ts:serverTimestamp()});setSS('ok');}catch(e){setSS('ok');}}
@@ -443,6 +478,70 @@ function buildOrigemChips(){
   const el=document.getElementById('origem-chips');
   el.innerHTML=nomes.map(n=>`<span class="chip ${origemSel===n?'sel':''}" onclick="selOrigem('${n.replace(/'/g,"\'")}')">${n}</span>`).join('');
 }
+// ── TIPOS DE ENTRADA ──
+const ENTRADAS={
+  'Salário':{cor:'#27a06a'},
+  'Subsídio':{cor:'#27a06a'},
+  'Prémio / Bónus':{cor:'#7F77DD'},
+  'Rendimento extra':{cor:'#3a7bd5'},
+  'Prenda / Oferta':{cor:'#b87333'},
+  'Prémio de jogo':{cor:'#D85A30'},
+  'Reembolso':{cor:'#378ADD'},
+  'Outro':{cor:'#888780'},
+};
+
+function buildEntradaChips(){
+  document.getElementById('entrada-chips').innerHTML=
+    Object.keys(ENTRADAS).map(k=>`<span class="chip ${entradaSel===k?'sel':''}" onclick="selEntrada('${k}')">${k}</span>`).join('');
+}
+function buildDestinoChips(){
+  const nomes=ativos.length?[...new Set(ativos.map(a=>a.desc))]:['CGD conta à ordem','NB conta à ordem','Carteira (dinheiro)'];
+  document.getElementById('destino-chips').innerHTML=
+    nomes.map(n=>`<span class="chip ${destinoSel===n?'sel':''}" onclick="selDestino('${n.replace(/'/g,"\'")}')">` +n+`</span>`).join('');
+}
+window.selEntrada=function(k){entradaSel=k;buildEntradaChips();};
+window.selDestino=function(n){destinoSel=n;buildDestinoChips();};
+
+window.openEntradaModal=function(){
+  entradaSel=null;destinoSel=null;
+  document.getElementById('e-val').value='';
+  document.getElementById('e-desc').value='';
+  document.getElementById('e-data').value=new Date().toISOString().split('T')[0];
+  buildEntradaChips();buildDestinoChips();
+  document.getElementById('entrada-modal').style.display='flex';
+  setTimeout(()=>document.getElementById('e-val').focus(),100);
+};
+window.closeEntradaModal=function(){document.getElementById('entrada-modal').style.display='none';};
+
+window.saveEntrada=async function(){
+  if(!entradaSel){alert('Selecciona o tipo de entrada.');return;}
+  const val=parseFloat(document.getElementById('e-val').value)||0;
+  if(!val){alert('Insere um valor.');return;}
+  if(!destinoSel){alert('Selecciona o destino do dinheiro.');return;}
+  const data=document.getElementById('e-data').value||new Date().toISOString().split('T')[0];
+  const desc=document.getElementById('e-desc').value.trim();
+  // guardar entrada
+  await sv('entradas',{tipo:entradaSel,desc,valor:val,data,mes:data.substring(0,7),destino:destinoSel});
+  // adicionar ao activo correspondente
+  const ativo=ativos.find(a=>a.desc===destinoSel);
+  if(ativo){
+    await updateDoc(doc(db,'users',uid,'ativos',ativo.id),{valor:(ativo.valor||0)+val,ts:serverTimestamp()});
+  }
+  closeEntradaModal();
+};
+
+// ── TOGGLE GASTOS/ENTRADAS ──
+let entradas=[];
+window.setMovTab=function(tab){
+  movTab=tab;
+  const bg=tab==='gastos'?'var(--red)':'var(--green)';
+  document.getElementById('toggle-gastos').style.background=tab==='gastos'?'var(--red)':'none';
+  document.getElementById('toggle-gastos').style.color=tab==='gastos'?'#fff':'var(--muted)';
+  document.getElementById('toggle-entradas').style.background=tab==='entradas'?'var(--green)':'none';
+  document.getElementById('toggle-entradas').style.color=tab==='entradas'?'#fff':'var(--muted)';
+  renderGastos();
+};
+
 window.selOrigem=function(n){
   origemSel=n;
   document.getElementById('origem-chips').querySelectorAll('.chip').forEach(c=>{c.classList.toggle('sel',c.textContent===n);});
@@ -471,41 +570,59 @@ window.delGasto=async function(id){await dl('gastos',id);};
 // ── RENDER GASTOS ──
 window.mudaMes=function(dir){mesSel.setMonth(mesSel.getMonth()+dir);renderGastos();}
 
+window.delEntrada=async function(id){await dl('entradas',id);};
+
 function renderGastos(){
   const mk=mesKey(mesSel);
   document.getElementById('mes-label').textContent=mesStr(mesSel);
-  const mes=gastos.filter(g=>g.mes===mk||g.data?.startsWith(mk));
-  const total=mes.reduce((s,g)=>s+g.valor,0);
+  const isEntradas=movTab==='entradas';
+  const registos=isEntradas
+    ?entradas.filter(e=>e.mes===mk||e.data?.startsWith(mk))
+    :gastos.filter(g=>g.mes===mk||g.data?.startsWith(mk));
+  const total=registos.reduce((s,r)=>s+r.valor,0);
+  const cor=isEntradas?'var(--green)':'var(--red)';
+  document.getElementById('g-total-mes').style.color=cor;
   document.getElementById('g-total-mes').textContent=total>0?fmt(total):'';
 
   const el=document.getElementById('gastos-list');
   const em=document.getElementById('gastos-empty');
-  if(!mes.length){el.innerHTML='';em.style.display='block';return;}
+  if(!registos.length){
+    el.innerHTML='';em.style.display='block';
+    em.textContent=isEntradas?'Sem entradas registadas neste mês. Usa o botão ↓ para adicionar.':'Sem gastos registados neste mês. Usa o botão + para adicionar.';
+    return;
+  }
   em.style.display='none';
 
-  // agrupar por dia
   const porDia={};
-  mes.forEach(g=>{const d=g.data||mk+'-01';if(!porDia[d])porDia[d]=[];porDia[d].push(g);});
+  registos.forEach(r=>{const d=r.data||mk+'-01';if(!porDia[d])porDia[d]=[];porDia[d].push(r);});
   const dias=Object.keys(porDia).sort().reverse();
 
   el.innerHTML=dias.map(dia=>{
     const label=new Date(dia+'T12:00:00').toLocaleDateString('pt-PT',{weekday:'short',day:'numeric',month:'short'});
     const itens=porDia[dia];
-    const tDia=itens.reduce((s,g)=>s+g.valor,0);
+    const tDia=itens.reduce((s,r)=>s+r.valor,0);
     return `<div style="margin-bottom:14px">
       <div style="display:flex;justify-content:space-between;margin-bottom:6px">
         <span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">${label}</span>
-        <span style="font-size:11px;color:var(--muted)">${fmt(tDia)}</span>
+        <span style="font-size:11px;color:${cor}">${fmt(tDia)}</span>
       </div>
       <div class="card" style="padding:2px 12px">
-        ${itens.map(g=>`<div class="gasto-item">
-          <div class="cat-dot" style="background:${CATS[g.cat]?.cor||'#888'}"></div>
+        ${itens.map(r=>isEntradas?`<div class="gasto-item">
+          <div class="cat-dot" style="background:${ENTRADAS[r.tipo]?.cor||'#27a06a'}"></div>
           <div class="gasto-info">
-            <div class="gasto-desc">${g.desc||g.subcat||g.cat}</div>
-            <div class="gasto-sub">${g.cat}${g.subcat?' · '+g.subcat:''}${g.origem?' · <span style="color:var(--gold);font-size:10px">'+g.origem+'</span>':''}</div>
+            <div class="gasto-desc">${r.desc||r.tipo}</div>
+            <div class="gasto-sub">${r.tipo}${r.destino?' · <span style="color:var(--gold);font-size:10px">'+r.destino+'</span>':''}</div>
           </div>
-          <div class="gasto-val">${fmt(g.valor)}</div>
-          <button onclick="delGasto('${g.id}')" style="background:none;border:none;color:var(--muted);cursor:pointer;padding:4px;font-size:14px;margin-left:4px">✕</button>
+          <div class="gasto-val" style="color:var(--green)">+${fmt(r.valor)}</div>
+          <button onclick="delEntrada('${r.id}')" style="background:none;border:none;color:var(--muted);cursor:pointer;padding:4px;font-size:14px;margin-left:4px">✕</button>
+        </div>`:`<div class="gasto-item">
+          <div class="cat-dot" style="background:${CATS[r.cat]?.cor||'#888'}"></div>
+          <div class="gasto-info">
+            <div class="gasto-desc">${r.desc||r.subcat||r.cat}</div>
+            <div class="gasto-sub">${r.cat}${r.subcat?' · '+r.subcat:''}${r.origem?' · <span style="color:var(--gold);font-size:10px">'+r.origem+'</span>':''}</div>
+          </div>
+          <div class="gasto-val">${fmt(r.valor)}</div>
+          <button onclick="delGasto('${r.id}')" style="background:none;border:none;color:var(--muted);cursor:pointer;padding:4px;font-size:14px;margin-left:4px">✕</button>
         </div>`).join('')}
       </div>
     </div>`;
@@ -657,10 +774,14 @@ window.renderProjecao=function(){
 
 // ── VISÃO GERAL ──
 function buildVisao(){
-  const tD=CR.reduce((s,c)=>s+c.cap,0);const tP=CR.reduce((s,c)=>s+c.prest,0);const tJ=CR.reduce((s,c)=>s+jm(c),0);
+  const tD=CR.reduce((s,c)=>s+c.cap,0);
+  const entradasM2=entradas.filter(e=>e.mes===mk||e.data?.startsWith(mk));
+  const tEexp=entradasM2.reduce((s,e)=>s+e.valor,0);const tP=CR.reduce((s,c)=>s+c.prest,0);const tJ=CR.reduce((s,c)=>s+jm(c),0);
   const mk=mesKey(mesSel);
   const gastosM=gastos.filter(g=>g.mes===mk||g.data?.startsWith(mk));
   const tG=gastosM.reduce((s,g)=>s+g.valor,0);
+  const entradasM=entradas.filter(e=>e.mes===mk||e.data?.startsWith(mk));
+  const tE=entradasM.reduce((s,e)=>s+e.valor,0);
   const tInc=incomes.reduce((s,i)=>s+i.valor,0);
 
   document.getElementById('v-metrics').innerHTML=`
@@ -668,6 +789,7 @@ function buildVisao(){
     <div class="met"><div class="met-l">prestações/mês</div><div class="met-v a">${fmt(tP)}</div></div>
     <div class="met"><div class="met-l">juros/mês</div><div class="met-v r">${fmt(tJ)}</div></div>
     <div class="met"><div class="met-l">gastos este mês</div><div class="met-v ${tG>0?'r':'b'}">${tG>0?fmt(tG):'—'}</div></div>
+    <div class="met"><div class="met-l">entradas este mês</div><div class="met-v ${tE>0?'g':'b'}">${tE>0?fmt(tE):'—'}</div></div>
   `;
 
   // gastos por categoria
@@ -753,12 +875,16 @@ window.genExp=function(){
   const mk=mesKey(mesSel);
   const gastosM=gastos.filter(g=>g.mes===mk||g.data?.startsWith(mk));
   const tG=gastosM.reduce((s,g)=>s+g.valor,0);
+  const entradasM=entradas.filter(e=>e.mes===mk||e.data?.startsWith(mk));
+  const tE=entradasM.reduce((s,e)=>s+e.valor,0);
   const tI=incomes.reduce((s,i)=>s+i.valor,0);
   const tF=fixed.reduce((s,f)=>s+f.valor,0);
   const tP=CR.reduce((s,c)=>s+c.prest,0);
   const tD=CR.reduce((s,c)=>s+c.cap,0);
+  const entradasM2=entradas.filter(e=>e.mes===mk||e.data?.startsWith(mk));
+  const tEexp=entradasM2.reduce((s,e)=>s+e.valor,0);
   const porCat={};gastosM.forEach(g=>{if(!porCat[g.cat])porCat[g.cat]=0;porCat[g.cat]+=g.valor;});
-  let txt=`══════════════════════════════\nHM FINANCE — RESUMO\n${now}\n══════════════════════════════\n\nCASH FLOW MENSAL\n• Rendimentos:    ${fmt(tI)}\n• Prestações:     ${fmt(tP)}\n• Despesas fixas: ${fmt(tF)}\n• Gastos variáveis: ${fmt(tG)}\n• Saldo restante: ${fmt(tI-tP-tF-tG)}\n\nGASTOS ${mesStr(mesSel).toUpperCase()}\n`;
+  let txt=`══════════════════════════════\nHM FINANCE — RESUMO\n${now}\n══════════════════════════════\n\nCASH FLOW MENSAL\n• Rendimentos:    ${fmt(tI)}\n• Prestações:     ${fmt(tP)}\n• Despesas fixas: ${fmt(tF)}\n• Entradas extra: ${fmt(tEexp)}\n• Gastos variáveis: ${fmt(tG)}\n• Saldo restante: ${fmt(tI-tP-tF-tG+tEexp)}\n\nGASTOS ${mesStr(mesSel).toUpperCase()}\n`;
   Object.keys(porCat).sort((a,b)=>porCat[b]-porCat[a]).forEach(c=>{txt+=`• ${c}: ${fmt(porCat[c])}\n`;});
   // gastos por origem
   const porOrigem={};gastosM.forEach(g=>{if(g.origem){if(!porOrigem[g.origem])porOrigem[g.origem]=0;porOrigem[g.origem]+=g.valor;}});
