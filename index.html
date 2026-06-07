@@ -128,7 +128,11 @@ select option{background:#222}
       <div><label>valor (€)</label><input id="g-val" type="number" step="0.01" placeholder="0.00" inputmode="decimal"></div>
       <div><label>data</label><input id="g-data" type="date"></div>
     </div>
-    <div style="margin-bottom:12px"><label>descrição (opcional)</label><input id="g-desc" type="text" placeholder="ex: Pingo Doce semana"></div>
+    <div style="margin-bottom:10px"><label>descrição (opcional)</label><input id="g-desc" type="text" placeholder="ex: Pingo Doce semana"></div>
+    <div style="margin-bottom:12px">
+      <label>origem do dinheiro</label>
+      <div id="origem-chips" style="margin-top:4px"></div>
+    </div>
     <div style="display:flex;gap:8px">
       <button class="btn btn-gold" style="flex:1" onclick="saveGasto()">guardar</button>
       <button class="btn" onclick="closeModal()">cancelar</button>
@@ -317,7 +321,7 @@ select option{background:#222}
 <script type="module">
 import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import{getAuth,signInAnonymously,onAuthStateChanged}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import{getFirestore,doc,getDoc,setDoc,collection,onSnapshot,addDoc,deleteDoc,getDocs,serverTimestamp,query,orderBy,where}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import{getFirestore,doc,getDoc,setDoc,collection,onSnapshot,addDoc,deleteDoc,getDocs,updateDoc,serverTimestamp,query,orderBy,where}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const FB={apiKey:"AIzaSyBhnDODDgjU5AMjCJxPY54DTaYd7tfBhJE",authDomain:"hm-finance-7acb8.firebaseapp.com",projectId:"hm-finance-7acb8",storageBucket:"hm-finance-7acb8.firebasestorage.app",messagingSenderId:"1022016586396",appId:"1:1022016586396:web:588a7fc420611bfba9e359"};
 
@@ -347,7 +351,7 @@ const db=getFirestore(app2);
 let uid=null,incomes=[],fixed=[],ativos=[],gastos=[];
 const CH={};
 let mesSel=new Date();mesSel.setDate(1);
-let catSel=null,subcatSel=null;
+let catSel=null,subcatSel=null,origemSel=null;
 
 // ── UTILS ──
 function fmt(n){return Number(n).toLocaleString('pt-PT',{minimumFractionDigits:2,maximumFractionDigits:2})+'€'}
@@ -408,7 +412,9 @@ window.openModal=function(){
   document.getElementById('g-desc').value='';
   document.getElementById('g-data').value=new Date().toISOString().split('T')[0];
   document.getElementById('subcat-wrap').style.display='none';
+  origemSel=null;
   buildCatChips();
+  buildOrigemChips();
   document.getElementById('gasto-modal').style.display='flex';
   setTimeout(()=>document.getElementById('g-val').focus(),100);
 };
@@ -430,13 +436,33 @@ window.selSubcat=function(s){
   document.getElementById('subcat-chips').querySelectorAll('.chip').forEach(c=>{c.classList.toggle('sel',c.textContent===s);});
 };
 
+function buildOrigemChips(){
+  const fontes=['CGD conta à ordem','NB conta à ordem','NB conta poupança','Carteira (dinheiro)'];
+  // também adiciona activos guardados pelo utilizador
+  const nomes=ativos.length?[...new Set(ativos.map(a=>a.desc))]:fontes;
+  const el=document.getElementById('origem-chips');
+  el.innerHTML=nomes.map(n=>`<span class="chip ${origemSel===n?'sel':''}" onclick="selOrigem('${n.replace(/'/g,"\'")}')">${n}</span>`).join('');
+}
+window.selOrigem=function(n){
+  origemSel=n;
+  document.getElementById('origem-chips').querySelectorAll('.chip').forEach(c=>{c.classList.toggle('sel',c.textContent===n);});
+};
+
 window.saveGasto=async function(){
   if(!catSel){alert('Selecciona uma categoria.');return;}
   const val=parseFloat(document.getElementById('g-val').value)||0;
   if(!val){alert('Insere um valor.');return;}
+  if(!origemSel){alert('Selecciona a origem do dinheiro.');return;}
   const data=document.getElementById('g-data').value||new Date().toISOString().split('T')[0];
   const desc=document.getElementById('g-desc').value.trim();
-  await sv('gastos',{cat:catSel,subcat:subcatSel||'',desc,valor:val,data,mes:data.substring(0,7)});
+  // guardar gasto
+  await sv('gastos',{cat:catSel,subcat:subcatSel||'',desc,valor:val,data,mes:data.substring(0,7),origem:origemSel});
+  // descontar do activo correspondente
+  const ativo=ativos.find(a=>a.desc===origemSel);
+  if(ativo){
+    const novoVal=Math.max((ativo.valor||0)-val,0);
+    await updateDoc(doc(db,'users',uid,'ativos',ativo.id),{valor:novoVal,ts:serverTimestamp()});
+  }
   closeModal();
 };
 
@@ -476,7 +502,7 @@ function renderGastos(){
           <div class="cat-dot" style="background:${CATS[g.cat]?.cor||'#888'}"></div>
           <div class="gasto-info">
             <div class="gasto-desc">${g.desc||g.subcat||g.cat}</div>
-            <div class="gasto-sub">${g.cat}${g.subcat?' · '+g.subcat:''}</div>
+            <div class="gasto-sub">${g.cat}${g.subcat?' · '+g.subcat:''}${g.origem?' · <span style="color:var(--gold);font-size:10px">'+g.origem+'</span>':''}</div>
           </div>
           <div class="gasto-val">${fmt(g.valor)}</div>
           <button onclick="delGasto('${g.id}')" style="background:none;border:none;color:var(--muted);cursor:pointer;padding:4px;font-size:14px;margin-left:4px">✕</button>
@@ -734,6 +760,9 @@ window.genExp=function(){
   const porCat={};gastosM.forEach(g=>{if(!porCat[g.cat])porCat[g.cat]=0;porCat[g.cat]+=g.valor;});
   let txt=`══════════════════════════════\nHM FINANCE — RESUMO\n${now}\n══════════════════════════════\n\nCASH FLOW MENSAL\n• Rendimentos:    ${fmt(tI)}\n• Prestações:     ${fmt(tP)}\n• Despesas fixas: ${fmt(tF)}\n• Gastos variáveis: ${fmt(tG)}\n• Saldo restante: ${fmt(tI-tP-tF-tG)}\n\nGASTOS ${mesStr(mesSel).toUpperCase()}\n`;
   Object.keys(porCat).sort((a,b)=>porCat[b]-porCat[a]).forEach(c=>{txt+=`• ${c}: ${fmt(porCat[c])}\n`;});
+  // gastos por origem
+  const porOrigem={};gastosM.forEach(g=>{if(g.origem){if(!porOrigem[g.origem])porOrigem[g.origem]=0;porOrigem[g.origem]+=g.valor;}});
+  if(Object.keys(porOrigem).length){txt+=`\nPOR ORIGEM\n`;Object.keys(porOrigem).sort((a,b)=>porOrigem[b]-porOrigem[a]).forEach(o=>{txt+=`• ${o}: ${fmt(porOrigem[o])}\n`;});}
   txt+=`\nDÍVIDA TOTAL: ${fmt(tD)}\n──────────────────────────────\n`;
   CR.forEach((c,i)=>{txt+=`${i+1}. ${c.nome} [${c.tan}%] — ${fmt(c.cap)} · ${c.prazo}m\n`;});
   txt+=`══════════════════════════════`;
