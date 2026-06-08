@@ -621,7 +621,13 @@ input:focus{
 <div id="modal-entrada" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeModal('entrada')">
   <div class="modal">
     <div class="modal-title">registar entrada</div>
-    <div style="margin-bottom:10px"><label>tipo</label><div id="entrada-chips" style="margin-top:4px"></div></div>
+    <div style="margin-bottom:10px">
+      <label>tipo</label>
+      <div id="entrada-chips" style="margin-top:4px"></div>
+      <div id="renda-nota" style="display:none;margin-top:8px;background:rgba(176,106,255,0.1);border:.5px solid rgba(176,106,255,0.25);border-radius:10px;padding:9px 12px;font-size:12px;color:#c99dff;line-height:1.5">
+        <span id="renda-nota-txt"></span>
+      </div>
+    </div>
     <div class="g2">
       <div><label>valor (€)</label><input id="e-val" type="number" step="0.01" placeholder="0.00" inputmode="decimal"></div>
       <div><label>data</label><input id="e-data" type="date"></div>
@@ -994,7 +1000,25 @@ const CATS={
   'Crédito':{cor:'#e74c3c',sub:['Prestação','Amortização','Juros','Outro']},
   'Outros':{cor:'#888780',sub:['Vestuário','Combustível/EV','Educação','Transferência','Outro']},
 };
-const TENT={'Salário':{cor:'#27a06a'},'Subsídio':{cor:'#27a06a'},'Prémio/Bónus':{cor:'#7F77DD'},'Rendimento extra':{cor:'#3a7bd5'},'Prenda/Oferta':{cor:'#b87333'},'Prémio de jogo':{cor:'#D85A30'},'Reembolso':{cor:'#378ADD'},'Outro':{cor:'#888780'}};
+const TENT={
+  'Salário':{cor:'#27a06a'},
+  'Subsídio':{cor:'#27a06a'},
+  'Renda — Quarto grande':{cor:'#b06aff'},
+  'Renda — Quarto médio':{cor:'#9055e0'},
+  'Renda — Quarto pequeno':{cor:'#7040c0'},
+  'Prémio/Bónus':{cor:'#7F77DD'},
+  'Rendimento extra':{cor:'#3a7bd5'},
+  'Prenda/Oferta':{cor:'#b87333'},
+  'Prémio de jogo':{cor:'#D85A30'},
+  'Reembolso':{cor:'#378ADD'},
+  'Outro':{cor:'#888780'},
+};
+// Valores de referência das rendas (Coimbra)
+const RENDAS={
+  'Renda — Quarto grande':{valor:225,ocupado:true},
+  'Renda — Quarto médio':{valor:200,ocupado:true},
+  'Renda — Quarto pequeno':{valor:200,ocupado:false},
+};
 
 const app2=initializeApp(FB);
 const auth=getAuth(app2);
@@ -1086,6 +1110,7 @@ window.openModal=function(tipo){
   } else {
     entradaSel=null;destinoSel=null;
     document.getElementById('e-val').value='';document.getElementById('e-desc').value='';document.getElementById('e-data').value=today();
+    const rn=document.getElementById('renda-nota');if(rn)rn.style.display='none';
     buildEntradaChips();buildDestinoChips();
     document.getElementById('modal-entrada').style.display='flex';
     setTimeout(()=>document.getElementById('e-val').focus(),150);
@@ -1128,8 +1153,35 @@ window.selOrigem=function(n){
   const nota=document.getElementById('origem-nota-cartao');
   if(nota){nota.style.display=isCartao?'block':'none';}
 };
-function buildEntradaChips(){document.getElementById('entrada-chips').innerHTML=Object.keys(TENT).map(k=>`<span class="chip${entradaSel===k?' sel':''}" onclick="selEntrada('${k}')">${k}</span>`).join('');}
-window.selEntrada=k=>{entradaSel=k;buildEntradaChips();};
+function buildEntradaChips(){
+  document.getElementById('entrada-chips').innerHTML=Object.keys(TENT).map(k=>`<span class="chip${entradaSel===k?' sel':''}" onclick="selEntrada('${k}')">${k}</span>`).join('');
+  // Nota renda
+  const nota=document.getElementById('renda-nota');
+  const notaTxt=document.getElementById('renda-nota-txt');
+  if(nota&&notaTxt&&entradaSel&&RENDAS[entradaSel]){
+    const r=RENDAS[entradaSel];
+    const totalMes=Object.values(RENDAS).filter(x=>x.ocupado).reduce((s,x)=>s+x.valor,0);
+    notaTxt.innerHTML=`Valor de referência: <strong style="color:#c99dff">${fmt(r.valor)}</strong> · ${r.ocupado?'<span style="color:var(--green-s)">✓ ocupado</span>':'<span style="color:var(--amber-s)">⬤ vago neste momento</span>'}<br>Total mensal actual de rendas: <strong style="color:#c99dff">${fmt(totalMes)}</strong> · Anual (12m): <strong style="color:#c99dff">${fmt(totalMes*12)}</strong>`;
+    nota.style.display='block';
+  } else if(nota){
+    nota.style.display='none';
+  }
+}
+window.selEntrada=function(k){
+  entradaSel=k;
+  buildEntradaChips();
+  // Pré-preencher valor se for renda
+  if(RENDAS[k]){
+    const valEl=document.getElementById('e-val');
+    if(!valEl.value||valEl.value==='0')valEl.value=RENDAS[k].valor;
+    // Sugerir descrição
+    const descEl=document.getElementById('e-desc');
+    if(!descEl.value){
+      const mes=new Date().toLocaleDateString('pt-PT',{month:'long',year:'numeric'});
+      descEl.value=k.replace('Renda — ','')+' — '+mes;
+    }
+  }
+};
 function buildDestinoChips(){document.getElementById('destino-chips').innerHTML=ativos.map(a=>`<span class="chip${destinoSel===a.desc?' sel':''}" onclick="selDestino('${a.desc.replace(/'/g,"\\'")}')">${a.desc}</span>`).join('');}
 window.selDestino=n=>{destinoSel=n;document.getElementById('destino-chips').querySelectorAll('.chip').forEach(c=>c.classList.toggle('sel',c.textContent===n));};
 
@@ -1677,6 +1729,8 @@ async function prePopulate(){
     {nome:'NB Pessoal',valor:183.67,dia:2,tipo:'saida',cat:'Crédito',conta:'NB conta à ordem'},
     {nome:'Oney Auchan+',valor:308,dia:1,tipo:'saida',cat:'Crédito',conta:'CGD conta à ordem'},
     {nome:'Cetelem Caetano',valor:308,dia:1,tipo:'saida',cat:'Crédito',conta:'CGD conta à ordem'},
+    {nome:'Renda — Quarto grande',valor:225,dia:8,tipo:'entrada',cat:'Rendimento',conta:'NB conta à ordem'},
+    {nome:'Renda — Quarto médio',valor:200,dia:8,tipo:'entrada',cat:'Rendimento',conta:'NB conta à ordem'},
   ];
   for(const c of comps)await sv('compromissos',c);
 }
