@@ -563,7 +563,15 @@ input:focus{
       <div><label>data</label><input id="g-data" type="date"></div>
     </div>
     <div style="margin-bottom:10px"><label>descrição (opcional)</label><input id="g-desc" placeholder="ex: Pingo Doce semana"></div>
-    <div style="margin-bottom:12px"><label>origem</label><div id="origem-chips" style="margin-top:4px"></div></div>
+    <div style="margin-bottom:12px">
+      <label id="origem-label-contas" style="font-size:11px;color:var(--muted);margin-bottom:3px;display:none">contas bancárias</label>
+      <div id="origem-chips-contas" style="margin-bottom:6px"></div>
+      <label id="origem-label-cartoes" style="font-size:11px;color:var(--muted);margin-bottom:3px;display:none">cartões de crédito</label>
+      <div id="origem-chips-cartoes"></div>
+      <div id="origem-nota-cartao" style="display:none;margin-top:8px;background:var(--amber-bg);border:.5px solid rgba(255,154,60,.2);border-radius:10px;padding:9px 12px;font-size:12px;color:var(--amber-s);line-height:1.5">
+        O saldo deste cartão não é actualizado automaticamente — é gerido mensalmente via extrato. Este registo serve para rastrear os teus padrões de utilização por cartão.
+      </div>
+    </div>
     <div style="display:flex;gap:8px">
       <button class="btn btn-gold" style="flex:1" onclick="saveGasto()">guardar</button>
       <button class="btn" onclick="closeModal('gasto')">cancelar</button>
@@ -1051,8 +1059,37 @@ window.closeModal=id=>document.getElementById('modal-'+id).style.display='none';
 function buildCatChips(){document.getElementById('cat-chips').innerHTML=Object.keys(CATS).map(c=>`<span class="chip${catSel===c?' sel':''}" onclick="selCat('${c}')">${c}</span>`).join('');}
 window.selCat=function(c){catSel=c;subcatSel=null;buildCatChips();document.getElementById('subcat-wrap').style.display='block';document.getElementById('subcat-chips').innerHTML=CATS[c].sub.map(s=>`<span class="chip${subcatSel===s?' sel':''}" onclick="selSubcat('${s}')">${s}</span>`).join('');};
 window.selSubcat=s=>{subcatSel=s;document.getElementById('subcat-chips').querySelectorAll('.chip').forEach(c=>c.classList.toggle('sel',c.textContent===s));};
-function buildOrigemChips(){document.getElementById('origem-chips').innerHTML=ativos.map(a=>`<span class="chip${origemSel===a.desc?' sel':''}" onclick="selOrigem('${a.desc.replace(/'/g,"\\'")}')">${a.desc}</span>`).join('');}
-window.selOrigem=n=>{origemSel=n;document.getElementById('origem-chips').querySelectorAll('.chip').forEach(c=>c.classList.toggle('sel',c.textContent===n));};
+function buildOrigemChips(){
+  // Contas bancárias (activos)
+  const contaChips=ativos.map(a=>
+    `<span class="chip${origemSel===a.desc?' sel':''}" onclick="selOrigem('${a.desc.replace(/'/g,"\'")}')">
+      ${a.desc}
+    </span>`
+  ).join('');
+  // Cartões de crédito — grupo separado
+  const cartoes=CR.filter(c=>c.sub==='cartao');
+  const cartaoChips=cartoes.map(cc=>
+    `<span class="chip${origemSel===cc.nome?' sel':''}" onclick="selOrigem('${cc.nome.replace(/'/g,"\'")}')">
+      <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${cc.cor};margin-right:6px;vertical-align:middle"></span>${cc.nome}
+    </span>`
+  ).join('');
+  document.getElementById('origem-label-contas').style.display='block';
+  document.getElementById('origem-label-cartoes').style.display='block';
+  document.getElementById('origem-chips-contas').innerHTML=contaChips;
+  document.getElementById('origem-chips-cartoes').innerHTML=cartaoChips;
+}
+window.selOrigem=function(n){
+  origemSel=n;
+  // Actualizar highlight em ambos os grupos
+  document.querySelectorAll('#origem-chips-contas .chip,#origem-chips-cartoes .chip').forEach(ch=>{
+    const lbl=ch.textContent.trim();
+    ch.classList.toggle('sel',lbl===n||ch.querySelector('span+span')?.textContent.trim()===n);
+  });
+  // Verificar se é cartão de crédito — mostrar nota informativa
+  const isCartao=CR.some(cr=>cr.sub==='cartao'&&cr.nome===n);
+  const nota=document.getElementById('origem-nota-cartao');
+  if(nota){nota.style.display=isCartao?'block':'none';}
+};
 function buildEntradaChips(){document.getElementById('entrada-chips').innerHTML=Object.keys(TENT).map(k=>`<span class="chip${entradaSel===k?' sel':''}" onclick="selEntrada('${k}')">${k}</span>`).join('');}
 window.selEntrada=k=>{entradaSel=k;buildEntradaChips();};
 function buildDestinoChips(){document.getElementById('destino-chips').innerHTML=ativos.map(a=>`<span class="chip${destinoSel===a.desc?' sel':''}" onclick="selDestino('${a.desc.replace(/'/g,"\\'")}')">${a.desc}</span>`).join('');}
@@ -1067,8 +1104,12 @@ window.saveGasto=async function(){
   const data=document.getElementById('g-data').value||today();
   const desc=document.getElementById('g-desc').value.trim();
   await sv('gastos',{cat:catSel,subcat:subcatSel||'',desc,valor:val,data,mes:data.substring(0,7),origem:origemSel});
-  const a=ativos.find(x=>x.desc===origemSel);
-  if(a)await up('ativos',a.id,{valor:Math.max((a.valor||0)-val,0)});
+  // Só actualiza activo se for conta bancária (não cartão de crédito)
+  const isCartaoOrigem=CR.some(cr=>cr.sub==='cartao'&&cr.nome===origemSel);
+  if(!isCartaoOrigem){
+    const a=ativos.find(x=>x.desc===origemSel);
+    if(a)await up('ativos',a.id,{valor:Math.max((a.valor||0)-val,0)});
+  }
   closeModal('gasto');
 };
 window.delGasto=async id=>await dl('gastos',id);
@@ -1621,6 +1662,8 @@ window.genExp=function(){
   let txt='==============================\nHM FINANCE — '+mesStr(mesSel).toUpperCase()+'\n'+now+'\n==============================\n\n';
   txt+='MOVIMENTOS '+mesStr(mesSel).toUpperCase()+'\nEntradas: '+fmt(tE)+'\nSaídas variáveis: '+fmt(tG)+'\nSaldo: '+fmt(tE-tG)+'\n\nCOMPROMISSOS MENSAIS FIXOS: '+fmt(tComp)+'\n';
   txt+='\nGASTOS POR CATEGORIA\n';Object.keys(porCat).sort((a,b)=>porCat[b]-porCat[a]).forEach(c=>{txt+='- '+c+': '+fmt(porCat[c])+'\n';});
+  const porOrig={};gastosM.forEach(g=>{if(g.origem){if(!porOrig[g.origem])porOrig[g.origem]=0;porOrig[g.origem]+=g.valor;}});
+  if(Object.keys(porOrig).length){txt+='\nGASTOS POR ORIGEM\n';Object.keys(porOrig).sort((a,b)=>porOrig[b]-porOrig[a]).forEach(o=>{txt+='- '+o+': '+fmt(porOrig[o])+'\n';});}
   txt+='\nPATRIMÔNIO\nActivos: '+fmt(tA)+'\nDívida: '+fmt(tD)+'\nLíquido: '+fmt(tA-tD)+'\n\nCRÉDITOS ('+CR.length+')\n';
   CR.forEach((c,i)=>{txt+=(i+1)+'. '+c.nome+' ['+c.tan+'%] - '+fmt(c.cap)+' - '+c.prazo+'m - '+fmt(jm(c))+'/mês juros\n';});
   txt+='==============================';
