@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#0f0f0f"/>
+  <rect x="40" y="40" width="432" height="432" rx="72" fill="#181818"/>
+  <!-- H -->
+  <rect x="90" y="140" width="36" height="232" rx="8" fill="#C4A96A"/>
+  <rect x="90" y="236" width="120" height="36" rx="8" fill="#C4A96A"/>
+  <rect x="174" y="140" width="36" height="232" rx="8" fill="#C4A96A"/>
+  <!-- M -->
+  <rect x="240" y="140" width="32" height="232" rx="8" fill="#C4A96A"/>
+  <polygon points="256,140 290,220 324,140 324,372 292,372 292,260 256,320 220,260 220,372 188,372 188,140" fill="#C4A96A"/>
+  <!-- linha dourada decorativa -->
+  <rect x="90" y="410" width="332" height="6" rx="3" fill="#C4A96A" opacity="0.4"/>
+</svg>
