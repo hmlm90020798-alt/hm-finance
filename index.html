@@ -81,7 +81,7 @@ header{
 .logo span{color:var(--muted);font-weight:400;text-shadow:none}
 
 /* ── TOP NAV (desktop only) ── */
-.top-nav{
+.top-.top-nav{
   display:none; /* escondido em mobile */
   padding:0 8px;
   border-bottom:.5px solid var(--border);
@@ -717,7 +717,7 @@ input:focus{
       <button class="btn btn-sm" onclick="logout()" style="padding:6px 14px;font-size:12px">sair</button>
     </div>
   </header>
-  <nav>
+  <nav class="top-nav">
     <button class="nb on"  onclick="go('movimentos',this)">movimentos</button>
     <button class="nb" onclick="go('visao',this)">visão</button>
     <button class="nb" onclick="go('analise',this)">análise</button>
@@ -732,7 +732,7 @@ input:focus{
   <main>
 
     <!-- MOVIMENTOS -->
-    <div id="sc-movimentos" class="sc on">
+    <div id="sc-movimentos" class="sc on" style="padding-top:4px">
       <div class="toggle-bar">
         <button id="tog-saidas" class="tog-btn" onclick="setMovTab('saidas')" style="background:var(--red);color:#fff">saídas</button>
         <button id="tog-entradas" class="tog-btn" onclick="setMovTab('entradas')">entradas</button>
